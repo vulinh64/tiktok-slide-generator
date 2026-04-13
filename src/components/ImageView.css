@@ -1,0 +1,62 @@
+.image-view-wrapper {
+  display: inline;
+}
+
+.image-view-inner {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.image-view-inner img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+.image-view-wrapper.selected .image-view-inner {
+  outline: 2px solid #e94560;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.image-view-controls {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  padding: 6px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.image-view-input {
+  width: 3.2em;
+  padding: 2px 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e0e0e0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: right;
+  outline: none;
+  font-family: inherit;
+}
+
+.image-view-input:focus {
+  border-color: #e94560;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.image-view-pct-sign {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #a0a0b8;
+}

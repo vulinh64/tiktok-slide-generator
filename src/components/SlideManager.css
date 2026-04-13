@@ -1,0 +1,177 @@
+.slide-manager {
+  position: relative;
+}
+
+.slide-manager-toggle {
+  border: 1px solid #0f3460 !important;
+}
+
+.slide-manager-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 360px;
+  max-height: 500px;
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #0f3460;
+}
+
+.sm-header h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e0e0e0;
+  margin: 0;
+}
+
+.sm-close {
+  background: none;
+  border: none;
+  color: #a0a0b8;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.sm-close:hover {
+  color: #fff;
+}
+
+.sm-save {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #0f3460;
+}
+
+.sm-save input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #0f3460;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  outline: none;
+}
+
+.sm-save input:focus {
+  border-color: #e94560;
+}
+
+.sm-save button {
+  padding: 6px 14px;
+  border: none;
+  background: #e94560;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sm-save button:hover {
+  background: #d13a54;
+}
+
+.sm-new-btn {
+  margin: 8px 16px;
+  padding: 6px 0;
+  border: 1px dashed #0f3460;
+  background: transparent;
+  color: #a0a0b8;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sm-new-btn:hover {
+  border-color: #e94560;
+  color: #e94560;
+}
+
+.sm-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.sm-empty {
+  padding: 20px 16px;
+  text-align: center;
+  color: #6c7086;
+  font-size: 0.8125rem;
+}
+
+.sm-deck {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.sm-deck:hover {
+  background: rgba(15, 52, 96, 0.5);
+}
+
+.sm-deck.active {
+  background: rgba(233, 69, 96, 0.12);
+  border-left: 3px solid #e94560;
+  padding-left: 13px;
+}
+
+.sm-deck-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sm-deck-title {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #e0e0e0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sm-deck-meta {
+  font-size: 0.7rem;
+  color: #6c7086;
+}
+
+.sm-deck-delete {
+  background: none;
+  border: none;
+  color: #6c7086;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.sm-deck-delete:hover {
+  background: rgba(233, 69, 96, 0.2);
+  color: #e94560;
+}

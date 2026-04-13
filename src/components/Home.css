@@ -1,0 +1,144 @@
+.home {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 64px 24px;
+  background: #1a1a2e;
+}
+
+.home-inner {
+  width: 100%;
+  max-width: 720px;
+}
+
+.home-header {
+  margin-bottom: 40px;
+}
+
+.home-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #e94560;
+  margin-bottom: 8px;
+}
+
+.home-subtitle {
+  font-size: 1.1rem;
+  color: #6a6a80;
+}
+
+.home-create-btn {
+  display: block;
+  width: 100%;
+  padding: 18px;
+  border: 2px dashed #0f3460;
+  background: transparent;
+  color: #e94560;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  margin-bottom: 32px;
+}
+
+.home-create-btn:hover {
+  border-color: #e94560;
+  background: rgba(233, 69, 96, 0.08);
+}
+
+.home-deck-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.home-empty {
+  text-align: center;
+  color: #6a6a80;
+  padding: 48px 0;
+  font-size: 1rem;
+}
+
+.home-deck-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px;
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.home-deck-card:hover {
+  border-color: #e94560;
+  background: #1a2744;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.home-deck-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.home-deck-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #e0e0e0;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-deck-meta {
+  font-size: 0.8rem;
+  color: #6a6a80;
+  margin-bottom: 8px;
+}
+
+.home-deck-dot {
+  margin: 0 6px;
+}
+
+.home-deck-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.home-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #a0a0b8;
+  background: rgba(15, 52, 96, 0.6);
+  border-radius: 4px;
+  text-transform: capitalize;
+}
+
+.home-deck-delete {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: #6a6a80;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1.4rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.home-deck-delete:hover {
+  background: rgba(233, 69, 96, 0.15);
+  color: #e94560;
+}

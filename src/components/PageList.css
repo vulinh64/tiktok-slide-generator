@@ -1,0 +1,145 @@
+.page-list {
+  width: 180px;
+  flex-shrink: 0;
+  background: #16213e;
+  border-right: 1px solid #0f3460;
+  border-bottom: 1px solid #0f3460;
+  border-radius: 0 0 8px 0;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 72px);
+  overflow: hidden;
+}
+
+.page-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid #0f3460;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #a0a0b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.page-list-add {
+  width: 24px;
+  height: 24px;
+  border: 1px dashed #0f3460;
+  background: transparent;
+  color: #a0a0b8;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.page-list-add:hover {
+  border-color: #e94560;
+  color: #e94560;
+}
+
+.page-list-items {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.page-list-item {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  border: 1px solid transparent;
+}
+
+.page-list-item:hover {
+  background: rgba(15, 52, 96, 0.5);
+}
+
+.page-list-item.active {
+  background: rgba(233, 69, 96, 0.12);
+  border-color: #e94560;
+}
+
+.page-list-number {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: #0f3460;
+  color: #a0a0b8;
+  font-size: 0.7rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-list-item.active .page-list-number {
+  background: #e94560;
+  color: #fff;
+}
+
+.page-list-preview {
+  font-size: 0.7rem;
+  color: #6c7086;
+  line-height: 1.4;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+
+.page-list-item.active .page-list-preview {
+  color: #a0a0b8;
+}
+
+.page-list-delete {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: none;
+  color: transparent;
+  font-size: 0.85rem;
+  cursor: pointer;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: all 0.1s ease;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.page-list-item:hover .page-list-delete {
+  color: #6c7086;
+}
+
+.page-list-delete:hover {
+  background: rgba(233, 69, 96, 0.2);
+  color: #e94560 !important;
+}
+
+.page-list-item {
+  position: relative;
+}
+
+.page-list-preview {
+  flex: 1;
+  min-width: 0;
+}

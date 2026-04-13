@@ -1,0 +1,53 @@
+.code-block-wrapper {
+  position: relative;
+  margin: 0.75rem 0;
+}
+
+.code-block-wrapper pre {
+  margin: 0 !important;
+}
+
+.code-block-lang-select {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.3);
+  color: rgba(255, 255, 255, 0.55);
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 0.65em;
+  outline: none;
+  transition: all 0.15s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.code-block-lang-select:hover {
+  background: rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.code-block-lang-select option {
+  background: #1e1e2e;
+  color: #cdd6f4;
+  text-transform: none;
+}
+
+/* Preview-only static language label */
+.code-block-lang-label {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 8px;
+  color: rgba(255, 255, 255, 0.45);
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 0.65em;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  pointer-events: none;
+}
