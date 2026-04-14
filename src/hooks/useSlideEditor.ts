@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
 import { useEditor, ReactNodeViewRenderer } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -8,14 +8,39 @@ import Color from '@tiptap/extension-color'
 import Highlight from '@tiptap/extension-highlight'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
-import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
+import CodeBlock from '@tiptap/extension-code-block'
 import { Extension } from '@tiptap/core'
 import { Plugin } from '@tiptap/pm/state'
-import { all, createLowlight } from 'lowlight'
+import { createShikiPlugin } from '../extensions/shikiPlugin'
 import { CodeBlockView } from '../components/CodeBlockView'
 import { ImageView } from '../components/ImageView'
 
-const lowlight = createLowlight(all)
+const SHIKI_LANGS = [
+  'javascript', 'typescript', 'jsx', 'tsx',
+  'java', 'kotlin', 'scala',
+  'python', 'ruby', 'php', 'perl',
+  'go', 'rust', 'c', 'cpp', 'csharp', 'swift', 'dart',
+  'html', 'css', 'scss', 'json', 'yaml', 'toml', 'xml',
+  'sql', 'graphql',
+  'bash', 'shell', 'powershell',
+  'markdown', 'dockerfile', 'diff',
+  'lua', 'r', 'elixir', 'haskell', 'zig',
+]
+
+// Lazy-init: start loading Shiki immediately at module level
+let shikiPromise: Promise<any> | null = null
+function loadShiki() {
+  if (!shikiPromise) {
+    shikiPromise = import('shiki').then(({ createHighlighter }) =>
+      createHighlighter({
+        themes: ['dark-plus'],
+        langs: SHIKI_LANGS,
+      }),
+    )
+  }
+  return shikiPromise
+}
+loadShiki() // Kick off immediately
 
 const initialContent = `
 <h1>Your Slide Title</h1>
@@ -141,17 +166,35 @@ export function useSlideEditor() {
       Placeholder.configure({
         placeholder: 'Start writing your slide content...',
       }),
-      CodeBlockLowlight.extend({
+      CodeBlock.extend({
         addNodeView() {
           return ReactNodeViewRenderer(CodeBlockView)
         },
-      }).configure({
-        lowlight,
+        addProseMirrorPlugins() {
+          return [
+            ...(this.parent?.() || []),
+            createShikiPlugin({
+              name: this.name,
+              highlighter: null, // Loaded async below
+            }),
+          ]
+        },
       }),
       createImageDropPastePlugin(deckIdRef),
     ],
     content: initialContent,
   })
+
+  // Once Shiki is loaded, inject the highlighter into the plugin
+  useEffect(() => {
+    if (!editor) return
+    loadShiki().then((highlighter) => {
+      if (editor.isDestroyed) return
+      editor.view.dispatch(
+        editor.state.tr.setMeta('shikiHighlighter', highlighter),
+      )
+    })
+  }, [editor])
 
   const setDeckId = useCallback((id: string | null) => {
     deckIdRef.current = id

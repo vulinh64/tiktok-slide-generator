@@ -36,12 +36,10 @@ function App() {
   const fontScale = pageMeta.fontScale
   const marginScale = pageMeta.marginScale
   const dark = pageMeta.dark
-  const codeTheme = pageMeta.codeTheme
   const fontFamily = pageMeta.fontFamily
   const setFontScale = useCallback((v: number) => updatePageMeta({ fontScale: v }), [updatePageMeta])
   const setMarginScale = useCallback((v: number) => updatePageMeta({ marginScale: v }), [updatePageMeta])
   const setDark = useCallback((v: boolean) => updatePageMeta({ dark: v }), [updatePageMeta])
-  const setCodeTheme = useCallback((v: string) => updatePageMeta({ codeTheme: v }), [updatePageMeta])
   const setFontFamily = useCallback((v: string) => updatePageMeta({ fontFamily: v }), [updatePageMeta])
 
   // Refs for the beforeunload handler and persistCurrentDeck
@@ -132,7 +130,6 @@ function App() {
         fontSize: canvas.style.fontSize,
         fontFamily: canvas.style.fontFamily,
         className: canvas.className,
-        codeTheme: canvas.dataset.codeTheme,
       }
 
       for (let i = 0; i < allPages.length; i++) {
@@ -144,12 +141,11 @@ function App() {
 
         // Apply this page's metadata directly to the canvas DOM
         canvas.className = `slide-canvas ${isDark ? 'dark' : ''}`
-        canvas.dataset.codeTheme = meta.codeTheme ?? 'catppuccin'
         canvas.style.fontSize = `${(18 * fs) / 100}px`
         canvas.style.fontFamily = ff
         canvas.style.setProperty('--slide-padding-x', `${(48 * ms) / 100}px`)
 
-        // Set the content via the editor (suppressed save)
+        // Set the content
         editor.commands.setContent(allPages[i])
 
         // Wait for DOM to settle
@@ -168,7 +164,6 @@ function App() {
 
       // Restore original state
       canvas.className = origStyle.className
-      canvas.dataset.codeTheme = origStyle.codeTheme || ''
       canvas.style.fontSize = origStyle.fontSize
       canvas.style.fontFamily = origStyle.fontFamily
 
@@ -346,16 +341,6 @@ function App() {
           </select>
           <select
             className="font-scale-select"
-            value={codeTheme}
-            onChange={(e) => setCodeTheme(e.target.value)}
-          >
-            <option value="catppuccin">Catppuccin</option>
-            <option value="github-dark">GitHub Dark</option>
-            <option value="vscode-dark">VS Code Dark</option>
-            <option value="dracula">Dracula</option>
-          </select>
-          <select
-            className="font-scale-select"
             value={canvasZoom}
             onChange={(e) => setCanvasZoom(Number(e.target.value))}
           >
@@ -403,7 +388,6 @@ function App() {
             <div
               id="slide-canvas"
               className={`slide-canvas ${dark ? 'dark' : ''}`}
-              data-code-theme={codeTheme}
               style={{
                 fontSize: `${(18 * fontScale) / 100}px`,
                 fontFamily: FONT_OPTIONS.find((f) => f.value === fontFamily)?.css,

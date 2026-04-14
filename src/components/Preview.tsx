@@ -1,23 +1,49 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import type { Editor as TiptapEditor } from '@tiptap/react'
-import { generateHTML } from '@tiptap/react'
-import { all, createLowlight } from 'lowlight'
-import { toHtml } from 'hast-util-to-html'
+import type { Highlighter } from 'shiki'
+import { codeToHighlightedHtml } from '../extensions/shikiTokenize'
 import './Editor.css'
 import './CodeBlockView.css'
 
-const lowlight = createLowlight(all)
+let shikiInstance: Highlighter | null = null
+let shikiReady: Promise<Highlighter> | null = null
+
+function getShiki(): Promise<Highlighter> {
+  if (!shikiReady) {
+    shikiReady = import('shiki').then(({ createHighlighter }) =>
+      createHighlighter({
+        themes: ['dark-plus'],
+        langs: [
+          'javascript', 'typescript', 'jsx', 'tsx',
+          'java', 'kotlin', 'scala',
+          'python', 'ruby', 'php', 'perl',
+          'go', 'rust', 'c', 'cpp', 'csharp', 'swift', 'dart',
+          'html', 'css', 'scss', 'json', 'yaml', 'toml', 'xml',
+          'sql', 'graphql',
+          'bash', 'shell', 'powershell',
+          'markdown', 'dockerfile', 'diff',
+          'lua', 'r', 'elixir', 'haskell', 'zig',
+        ],
+      }),
+    ).then((h) => {
+      shikiInstance = h
+      return h
+    })
+  }
+  return shikiReady
+}
+getShiki()
 
 interface PreviewProps {
   editor: TiptapEditor | null
 }
 
 function highlightCode(html: string): string {
-  // Find all <pre><code class="language-xxx">...</code></pre> and highlight them
+  if (!shikiInstance) return html
+
   return html.replace(
     /<pre><code(?: class="language-(\w+)")?>([\s\S]*?)<\/code><\/pre>/g,
     (_match, lang: string | undefined, code: string) => {
-      // Decode HTML entities back to text for highlighting
       const decoded = code
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
@@ -27,10 +53,7 @@ function highlightCode(html: string): string {
 
       let highlighted: string
       try {
-        const tree = lang && lang !== 'plaintext'
-          ? lowlight.highlight(lang, decoded)
-          : lowlight.highlightAuto(decoded)
-        highlighted = toHtml(tree)
+        highlighted = codeToHighlightedHtml(shikiInstance!, decoded, lang || '')
       } catch {
         highlighted = code
       }
@@ -42,11 +65,20 @@ function highlightCode(html: string): string {
 }
 
 export function Preview({ editor }: PreviewProps) {
+  const [shikiLoaded, setShikiLoaded] = useState(!!shikiInstance)
+
+  useEffect(() => {
+    if (!shikiInstance) {
+      getShiki().then(() => setShikiLoaded(true))
+    }
+  }, [])
+
   const html = useMemo(() => {
     if (!editor) return ''
     const raw = editor.getHTML()
     return highlightCode(raw)
-  }, [editor, editor?.getHTML()])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, editor?.getHTML(), shikiLoaded])
 
   if (!editor) return null
 
