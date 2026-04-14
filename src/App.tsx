@@ -8,7 +8,7 @@ import { useSlideEditor } from './hooks/useSlideEditor'
 import { useSessionState } from './hooks/useSessionState'
 import { useSlides } from './hooks/useSlides'
 import { usePages } from './hooks/usePages'
-import { htmlToMarkdown, markdownToHtml, parseFrontMatter } from './utils/markdown'
+import { htmlToMarkdown, markdownToHtml, parseFrontMatter, FONT_OPTIONS } from './utils/markdown'
 import './App.css'
 
 function App() {
@@ -37,10 +37,12 @@ function App() {
   const marginScale = pageMeta.marginScale
   const dark = pageMeta.dark
   const codeTheme = pageMeta.codeTheme
+  const fontFamily = pageMeta.fontFamily
   const setFontScale = useCallback((v: number) => updatePageMeta({ fontScale: v }), [updatePageMeta])
   const setMarginScale = useCallback((v: number) => updatePageMeta({ marginScale: v }), [updatePageMeta])
   const setDark = useCallback((v: boolean) => updatePageMeta({ dark: v }), [updatePageMeta])
   const setCodeTheme = useCallback((v: string) => updatePageMeta({ codeTheme: v }), [updatePageMeta])
+  const setFontFamily = useCallback((v: string) => updatePageMeta({ fontFamily: v }), [updatePageMeta])
 
   // Refs for the beforeunload handler and persistCurrentDeck
   const currentDeckIdRef = useRef(currentDeckId)
@@ -86,6 +88,8 @@ function App() {
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [getAllPages, getAllMetas])
 
+  const [exportState, setExportState] = useState<'idle' | 'exporting' | 'done'>('idle')
+
   const handleExport = useCallback(async () => {
     const { toPng } = await import('html-to-image')
     const canvas = document.getElementById('slide-canvas')
@@ -107,6 +111,85 @@ function App() {
       console.error('Export failed:', err)
     }
   }, [dark, currentDeckTitle, activePage])
+
+  const handleExportAll = useCallback(async () => {
+    if (!editor) return
+    setExportState('exporting')
+
+    const originalPage = activePage
+
+    try {
+      const { toPng } = await import('html-to-image')
+      const JSZip = (await import('jszip')).default
+      const zip = new JSZip()
+      const allPages = getAllPages()
+      const allMetas = getAllMetas()
+      const canvas = document.getElementById('slide-canvas') as HTMLElement
+      if (!canvas) throw new Error('Canvas not found')
+
+      // Save original canvas styles to restore later
+      const origStyle = {
+        fontSize: canvas.style.fontSize,
+        fontFamily: canvas.style.fontFamily,
+        className: canvas.className,
+        codeTheme: canvas.dataset.codeTheme,
+      }
+
+      for (let i = 0; i < allPages.length; i++) {
+        const meta = allMetas[i]
+        const isDark = meta.dark ?? true
+        const fs = meta.fontScale ?? 100
+        const ms = meta.marginScale ?? 100
+        const ff = FONT_OPTIONS.find((f) => f.value === meta.fontFamily)?.css ?? FONT_OPTIONS[0].css
+
+        // Apply this page's metadata directly to the canvas DOM
+        canvas.className = `slide-canvas ${isDark ? 'dark' : ''}`
+        canvas.dataset.codeTheme = meta.codeTheme ?? 'catppuccin'
+        canvas.style.fontSize = `${(18 * fs) / 100}px`
+        canvas.style.fontFamily = ff
+        canvas.style.setProperty('--slide-padding-x', `${(48 * ms) / 100}px`)
+
+        // Set the content via the editor (suppressed save)
+        editor.commands.setContent(allPages[i])
+
+        // Wait for DOM to settle
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+
+        const dataUrl = await toPng(canvas, {
+          width: 960,
+          height: 1600,
+          pixelRatio: 2,
+          backgroundColor: isDark ? '#1a1a2e' : '#ffffff',
+        })
+
+        const base64 = dataUrl.split(',')[1]
+        zip.file(`${String(i).padStart(4, '0')}.png`, base64, { base64: true })
+      }
+
+      // Restore original state
+      canvas.className = origStyle.className
+      canvas.dataset.codeTheme = origStyle.codeTheme || ''
+      canvas.style.fontSize = origStyle.fontSize
+      canvas.style.fontFamily = origStyle.fontFamily
+
+      // Restore original page
+      switchPage(originalPage)
+
+      const blob = await zip.generateAsync({ type: 'blob' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.download = `${currentDeckTitle || 'slides'}.zip`
+      link.href = url
+      link.click()
+      URL.revokeObjectURL(url)
+
+      setExportState('done')
+    } catch (err) {
+      console.error('Export all failed:', err)
+      setExportState('idle')
+      switchPage(originalPage)
+    }
+  }, [editor, activePage, switchPage, getAllPages, getAllMetas, currentDeckTitle])
 
   // Wrap page switching to auto-persist to disk
   const handlePageSwitch = useCallback(
@@ -254,6 +337,15 @@ function App() {
           </select>
           <select
             className="font-scale-select"
+            value={fontFamily}
+            onChange={(e) => setFontFamily(e.target.value)}
+          >
+            {FONT_OPTIONS.map((f) => (
+              <option key={f.value} value={f.value}>{f.label}</option>
+            ))}
+          </select>
+          <select
+            className="font-scale-select"
             value={codeTheme}
             onChange={(e) => setCodeTheme(e.target.value)}
           >
@@ -276,6 +368,9 @@ function App() {
           </select>
           <button className="export-btn" onClick={handleExport}>
             Export PNG
+          </button>
+          <button className="export-btn" onClick={handleExportAll}>
+            Export All
           </button>
         </div>
       </header>
@@ -311,6 +406,7 @@ function App() {
               data-code-theme={codeTheme}
               style={{
                 fontSize: `${(18 * fontScale) / 100}px`,
+                fontFamily: FONT_OPTIONS.find((f) => f.value === fontFamily)?.css,
                 '--slide-padding-x': `${(48 * marginScale) / 100}px`,
               } as React.CSSProperties}
             >
@@ -323,6 +419,27 @@ function App() {
           </div>
         </div>
       </main>
+
+      {exportState !== 'idle' && (
+        <div className="export-overlay">
+          <div className="export-overlay-card">
+            {exportState === 'exporting' ? (
+              <>
+                <div className="export-spinner" />
+                <p className="export-overlay-text">Your slideshow is being exported...</p>
+              </>
+            ) : (
+              <>
+                <div className="export-check">&#10003;</div>
+                <p className="export-overlay-text">Your slideshow has been successfully exported.</p>
+                <button className="export-btn" onClick={() => setExportState('idle')}>
+                  Close
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

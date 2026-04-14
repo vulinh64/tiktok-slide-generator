@@ -1,36 +1,36 @@
 .toolbar {
   position: sticky;
-  top: 53px;
+  top: 3.3125em;
   z-index: 25;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 8px 12px;
+  gap: 0.25em;
+  padding: 0.5em 0.75em;
   background: #16213e;
-  border-radius: 8px;
+  border-radius: 0.5em;
   flex-wrap: wrap;
-  max-width: 960px;
+  max-width: 60em;
   width: 100%;
 }
 
 .toolbar-group {
   display: flex;
-  gap: 2px;
+  gap: 0.125em;
 }
 
 .toolbar-divider {
-  width: 1px;
-  height: 24px;
+  width: 0.0625em;
+  height: 1.5em;
   background: #0f3460;
-  margin: 0 4px;
+  margin: 0 0.25em;
 }
 
 .toolbar-btn {
-  padding: 6px 10px;
+  padding: 0.375em 0.625em;
   border: none;
   background: transparent;
   color: #a0a0b8;
-  border-radius: 4px;
+  border-radius: 0.25em;
   cursor: pointer;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -61,9 +61,9 @@
 .toolbar-color {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 4px;
+  gap: 0.25em;
+  padding: 0.25em 0.5em;
+  border-radius: 0.25em;
   cursor: pointer;
   color: #a0a0b8;
   font-size: 0.8125rem;
@@ -77,13 +77,13 @@
 }
 
 .toolbar-color input[type='color'] {
-  width: 20px;
-  height: 20px;
+  width: 1.25em;
+  height: 1.25em;
   border: none;
   padding: 0;
   background: none;
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: 0.1875em;
 }
 
 .toolbar-color input[type='color']::-webkit-color-swatch-wrapper {
@@ -91,16 +91,16 @@
 }
 
 .toolbar-color input[type='color']::-webkit-color-swatch {
-  border: 1px solid #0f3460;
-  border-radius: 3px;
+  border: 0.0625em solid #0f3460;
+  border-radius: 0.1875em;
 }
 
 .toolbar-lang-select {
-  padding: 4px 8px;
-  border: 1px solid #0f3460;
+  padding: 0.25em 0.5em;
+  border: 0.0625em solid #0f3460;
   background: transparent;
   color: #a0a0b8;
-  border-radius: 4px;
+  border-radius: 0.25em;
   cursor: pointer;
   font-size: 0.75rem;
   outline: none;

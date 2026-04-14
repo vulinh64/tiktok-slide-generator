@@ -208,6 +208,13 @@ export function Toolbar({ editor, deckId }: ToolbarProps) {
           H
           <input type="color" onChange={setHighlight} defaultValue="#fef08a" />
         </label>
+        <button
+          className="toolbar-btn"
+          onClick={() => editor.chain().focus().unsetHighlight().run()}
+          title="Clear Highlight"
+        >
+          H&#x0336;
+        </button>
       </div>
 
       <div className="toolbar-divider" />

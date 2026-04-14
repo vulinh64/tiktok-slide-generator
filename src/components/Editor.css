@@ -8,7 +8,7 @@
 
 .editor-container .tiptap {
   width: 100%;
-  padding: 48px var(--slide-padding-x, 48px);
+  padding: 3em var(--slide-padding-x, 3em);
   outline: none;
   font-size: inherit;
   line-height: 1.7;
@@ -65,19 +65,19 @@
 
 /* Blockquote */
 .editor-container .tiptap blockquote {
-  border-left: 4px solid #e94560;
+  border-left: 0.25em solid #e94560;
   padding: 0.5rem 1rem;
   margin: 0.75rem 0;
   background: #fdf2f4;
   color: #444;
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 0.375em 0.375em 0;
 }
 
 /* Code */
 .editor-container .tiptap code {
   background: #f1f1f1;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 0.125em 0.375em;
+  border-radius: 0.25em;
   font-family: 'JetBrains Mono', 'Consolas', 'Fira Code', monospace;
   font-size: 1em;
   color: #e94560;
@@ -87,8 +87,8 @@
 .editor-container .tiptap pre {
   background: var(--code-bg);
   color: var(--code-fg);
-  padding: 16px 20px;
-  border-radius: 8px;
+  padding: 1em 1.25em;
+  border-radius: 0.5em;
   margin: 0.75rem 0;
   overflow-x: auto;
   font-family: 'JetBrains Mono', 'Consolas', 'Fira Code', monospace;
@@ -107,7 +107,7 @@
 /* Horizontal rule */
 .editor-container .tiptap hr {
   border: none;
-  border-top: 2px solid #e5e5e5;
+  border-top: 0.125em solid #e5e5e5;
   margin: 1.5rem 0;
 }
 
@@ -128,7 +128,7 @@
 .editor-container .tiptap img {
   max-width: 100%;
   height: auto;
-  border-radius: 6px;
+  border-radius: 0.375em;
   margin: 0.5rem 0;
 }
 
@@ -147,8 +147,8 @@
 
 /* Highlight */
 .editor-container .tiptap mark {
-  border-radius: 2px;
-  padding: 1px 3px;
+  border-radius: 0.125em;
+  padding: 0.0625em 0.1875em;
 }
 
 /* Placeholder */

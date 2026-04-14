@@ -6,7 +6,9 @@
       "Bash(cd \"G:\\\\REPOSITORY\\\\tiktok-slider\" && npx tsc --noEmit 2>&1 | head -20)",
       "Bash(cd \"G:\\\\REPOSITORY\\\\tiktok-slider\" && npx tsc --noEmit 2>&1 | head -10)",
       "Bash(cd \"G:\\\\REPOSITORY\\\\tiktok-slider\" && npx tsc --noEmit 2>&1)",
-      "Bash(cd \"G:\\\\REPOSITORY\\\\tiktok-slider\" && npx vite preview --help 2>&1 | head -20)"
+      "Bash(cd \"G:\\\\REPOSITORY\\\\tiktok-slider\" && npx vite preview --help 2>&1 | head -20)",
+      "Bash(npx tsc:*)",
+      "Bash(npm install:*)"
     ]
   }
 }

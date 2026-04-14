@@ -2,24 +2,24 @@
   min-height: 100vh;
   display: flex;
   justify-content: center;
-  padding: 64px 24px;
+  padding: 4em 1.5em;
   background: #1a1a2e;
 }
 
 .home-inner {
   width: 100%;
-  max-width: 720px;
+  max-width: 45em;
 }
 
 .home-header {
-  margin-bottom: 40px;
+  margin-bottom: 2.5em;
 }
 
 .home-title {
   font-size: 2.5rem;
   font-weight: 700;
   color: #e94560;
-  margin-bottom: 8px;
+  margin-bottom: 0.5em;
 }
 
 .home-subtitle {
@@ -30,16 +30,16 @@
 .home-create-btn {
   display: block;
   width: 100%;
-  padding: 18px;
-  border: 2px dashed #0f3460;
+  padding: 1.125em;
+  border: 0.125em dashed #0f3460;
   background: transparent;
   color: #e94560;
-  border-radius: 12px;
+  border-radius: 0.75em;
   cursor: pointer;
   font-size: 1.1rem;
   font-weight: 600;
   transition: all 0.2s ease;
-  margin-bottom: 32px;
+  margin-bottom: 2em;
 }
 
 .home-create-btn:hover {
@@ -50,24 +50,24 @@
 .home-deck-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0.75em;
 }
 
 .home-empty {
   text-align: center;
   color: #6a6a80;
-  padding: 48px 0;
+  padding: 3em 0;
   font-size: 1rem;
 }
 
 .home-deck-card {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 20px 24px;
+  gap: 0.75em;
+  padding: 1.25em 1.5em;
   background: #16213e;
-  border: 1px solid #0f3460;
-  border-radius: 12px;
+  border: 0.0625em solid #0f3460;
+  border-radius: 0.75em;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -75,8 +75,8 @@
 .home-deck-card:hover {
   border-color: #e94560;
   background: #1a2744;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  transform: translateY(-0.0625em);
+  box-shadow: 0 0.25em 1em rgba(0, 0, 0, 0.3);
 }
 
 .home-deck-card-body {
@@ -88,7 +88,7 @@
   font-size: 1.15rem;
   font-weight: 600;
   color: #e0e0e0;
-  margin-bottom: 6px;
+  margin-bottom: 0.375em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -97,38 +97,38 @@
 .home-deck-meta {
   font-size: 0.8rem;
   color: #6a6a80;
-  margin-bottom: 8px;
+  margin-bottom: 0.5em;
 }
 
 .home-deck-dot {
-  margin: 0 6px;
+  margin: 0 0.375em;
 }
 
 .home-deck-tags {
   display: flex;
-  gap: 6px;
+  gap: 0.375em;
   flex-wrap: wrap;
 }
 
 .home-tag {
   display: inline-block;
-  padding: 2px 8px;
+  padding: 0.125em 0.5em;
   font-size: 0.7rem;
   font-weight: 500;
   color: #a0a0b8;
   background: rgba(15, 52, 96, 0.6);
-  border-radius: 4px;
+  border-radius: 0.25em;
   text-transform: capitalize;
 }
 
 .home-deck-delete {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+  width: 2.25em;
+  height: 2.25em;
   border: none;
   background: transparent;
   color: #6a6a80;
-  border-radius: 8px;
+  border-radius: 0.5em;
   cursor: pointer;
   font-size: 1.4rem;
   line-height: 1;
