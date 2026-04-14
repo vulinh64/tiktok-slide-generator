@@ -10,6 +10,7 @@ export interface SlideDeck {
 
 export interface SlideDeckFull extends SlideDeck {
   pages: string[] // markdown strings (may include front matter)
+  hasBg?: boolean
 }
 
 export function useSlides() {

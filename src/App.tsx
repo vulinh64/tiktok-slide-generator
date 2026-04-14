@@ -17,6 +17,7 @@ function App() {
   const [canvasZoom, setCanvasZoom] = useSessionState('slide-canvas-zoom', 50)
   const [currentDeckId, setCurrentDeckId] = useState<string | null>(null)
   const [currentDeckTitle, setCurrentDeckTitle] = useState('')
+  const [bgUrl, setBgUrl] = useState<string | null>(null)
   const { editor, setDeckId } = useSlideEditor()
   const { decks, loading, refresh, saveDeck, loadDeck, deleteDeck } = useSlides()
   const {
@@ -218,6 +219,30 @@ function App() {
     }
   }, [currentDeckTitle])
 
+  const handleBgUpload = useCallback(() => {
+    if (!currentDeckId) return
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/png,image/jpeg'
+    input.onchange = async () => {
+      const file = input.files?.[0]
+      if (!file) return
+      const buf = await file.arrayBuffer()
+      await fetch(`/api/slides/${currentDeckId}/bg`, {
+        method: 'POST',
+        body: buf,
+      })
+      setBgUrl(`/api/slides/${currentDeckId}/bg?t=${Date.now()}`)
+    }
+    input.click()
+  }, [currentDeckId])
+
+  const handleBgRemove = useCallback(async () => {
+    if (!currentDeckId) return
+    await fetch(`/api/slides/${currentDeckId}/bg`, { method: 'DELETE' })
+    setBgUrl(null)
+  }, [currentDeckId])
+
   // Home screen: open existing deck
   const handleHomeOpen = useCallback(
     async (id: string) => {
@@ -229,6 +254,7 @@ function App() {
       loadPages(htmlPages, metas)
       setCurrentDeckId(deck.id)
       setCurrentDeckTitle(deck.title)
+      setBgUrl(deck.hasBg ? `/api/slides/${deck.id}/bg?t=${Date.now()}` : null)
       setMode('edit')
       setScreen('editor')
     },
@@ -244,6 +270,7 @@ function App() {
     const id = await saveDeck('Untitled', mdPages)
     setCurrentDeckId(id)
     setCurrentDeckTitle('')
+    setBgUrl(null)
     setMode('edit')
     setScreen('editor')
   }, [editor, loadPages, saveDeck])
@@ -261,6 +288,7 @@ function App() {
     await persistCurrentDeck()
     setCurrentDeckId(null)
     setCurrentDeckTitle('')
+    setBgUrl(null)
     await refresh()
     setScreen('home')
   }, [persistCurrentDeck, refresh])
@@ -357,6 +385,14 @@ function App() {
           <button className="export-btn" onClick={handleExportAll}>
             Export All
           </button>
+          <button className="mode-btn" onClick={handleBgUpload}>
+            BG Image
+          </button>
+          {bgUrl && (
+            <button className="mode-btn" onClick={handleBgRemove}>
+              Remove BG
+            </button>
+          )}
         </div>
       </header>
 
@@ -392,6 +428,10 @@ function App() {
                 fontSize: `${(18 * fontScale) / 100}px`,
                 fontFamily: FONT_OPTIONS.find((f) => f.value === fontFamily)?.css,
                 '--slide-padding-x': `${(48 * marginScale) / 100}px`,
+                ...(bgUrl ? {
+                  backgroundImage: `url(${bgUrl})`,
+                  backgroundSize: '960px 1600px',
+                } : {}),
               } as React.CSSProperties}
             >
               {mode === 'edit' ? (

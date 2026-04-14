@@ -68,6 +68,11 @@ function detectMime(buf: Buffer): string {
   return 'application/octet-stream'
 }
 
+// Check if a bg file exists in a deck directory
+function hasBgFile(deckDir: string): boolean {
+  return fs.existsSync(path.join(deckDir, 'bg'))
+}
+
 // Find next available img-XXXX name in a deck directory
 function nextImageName(deckDir: string): string {
   const existing = fs.readdirSync(deckDir)
@@ -97,13 +102,9 @@ interface RootIndexEntry {
   id: string
   name: string
   pageCount: number
-  createdAt: string
-  updatedAt: string
 }
 
-interface RootIndex {
-  decks: RootIndexEntry[]
-}
+type RootIndex = RootIndexEntry[]
 
 const DEFAULT_INFO: DeckInfo = {
   name: 'Untitled',
@@ -127,18 +128,18 @@ function writeDeckInfo(deckDir: string, info: DeckInfo) {
   fs.writeFileSync(path.join(deckDir, INFO_FILE), JSON.stringify(info, null, 2), 'utf-8')
 }
 
-function writeRootIndex(index: RootIndex) {
-  fs.writeFileSync(ROOT_INDEX, JSON.stringify(index, null, 2), 'utf-8')
+function writeRootIndex(entries: RootIndex) {
+  fs.writeFileSync(ROOT_INDEX, JSON.stringify(entries, null, 2), 'utf-8')
 }
 
 // Full rebuild — only used when root info.json is missing or corrupt
 function rebuildRootIndex(): RootIndex {
   ensureDir(NOTES_DIR)
-  const entries = fs.readdirSync(NOTES_DIR, { withFileTypes: true })
+  const dirs = fs.readdirSync(NOTES_DIR, { withFileTypes: true })
     .filter((d) => d.isDirectory() && isValidDirName(d.name))
     .sort((a, b) => b.name.localeCompare(a.name))
 
-  const decks: RootIndexEntry[] = entries.map((entry) => {
+  const entries: RootIndex = dirs.map((entry) => {
     const deckDir = path.join(NOTES_DIR, entry.name)
     const info = readDeckInfo(deckDir)
     const pageCount = fs.readdirSync(deckDir).filter((f) => f.endsWith('.md')).length
@@ -146,14 +147,11 @@ function rebuildRootIndex(): RootIndex {
       id: entry.name,
       name: info.name,
       pageCount,
-      createdAt: info.createdAt || parseTimestamp(entry.name),
-      updatedAt: info.updatedAt,
     }
   })
 
-  const index: RootIndex = { decks }
-  writeRootIndex(index)
-  return index
+  writeRootIndex(entries)
+  return entries
 }
 
 // Read root index (rebuild if missing or corrupt)
@@ -168,20 +166,18 @@ function readRootIndex(): RootIndex {
 
 // Upsert a single entry into the root index, keep sorted by id descending
 function upsertRootIndex(entry: RootIndexEntry) {
-  const index = readRootIndex()
-  // Remove existing entry with same id
-  index.decks = index.decks.filter((d) => d.id !== entry.id)
-  // Insert and sort descending by id
-  index.decks.push(entry)
-  index.decks.sort((a, b) => b.id.localeCompare(a.id))
-  writeRootIndex(index)
+  let entries = readRootIndex()
+  entries = entries.filter((d) => d.id !== entry.id)
+  entries.push(entry)
+  entries.sort((a, b) => b.id.localeCompare(a.id))
+  writeRootIndex(entries)
 }
 
 // Remove a single entry from the root index
 function removeFromRootIndex(id: string) {
-  const index = readRootIndex()
-  index.decks = index.decks.filter((d) => d.id !== id)
-  writeRootIndex(index)
+  let entries = readRootIndex()
+  entries = entries.filter((d) => d.id !== id)
+  writeRootIndex(entries)
 }
 
 export function slidesPlugin(): Plugin {
@@ -197,16 +193,19 @@ export function slidesPlugin(): Plugin {
         try {
           // LIST all slide decks: GET /api/slides
           if (req.url === '/api/slides' && req.method === 'GET') {
-            const index = readRootIndex()
+            const entries = readRootIndex()
 
-            // Enrich with full settings from each deck's info.json
-            const decks = index.decks.map((entry) => ({
-              id: entry.id,
-              title: entry.name,
-              createdAt: entry.createdAt,
-              updatedAt: entry.updatedAt,
-              pageCount: entry.pageCount,
-            }))
+            const decks = entries.map((entry) => {
+              const deckDir = path.join(NOTES_DIR, entry.id)
+              const info = readDeckInfo(deckDir)
+              return {
+                id: entry.id,
+                title: entry.name,
+                createdAt: info.createdAt || parseTimestamp(entry.id),
+                updatedAt: info.updatedAt,
+                pageCount: entry.pageCount,
+              }
+            })
 
             res.end(JSON.stringify(decks))
             return
@@ -273,8 +272,6 @@ export function slidesPlugin(): Plugin {
               id,
               name: info.name,
               pageCount: info.pageCount,
-              createdAt: info.createdAt,
-              updatedAt: info.updatedAt,
             })
 
             res.end(JSON.stringify({ id, ...info, title: info.name }))
@@ -302,6 +299,7 @@ export function slidesPlugin(): Plugin {
               id,
               title: info.name,
               imgs: info.imgs || [],
+              hasBg: hasBgFile(deckDir),
               createdAt: info.createdAt || parseTimestamp(id),
               updatedAt: info.updatedAt,
               pageCount: pages.length,
@@ -372,6 +370,59 @@ export function slidesPlugin(): Plugin {
             res.setHeader('Content-Length', buf.length)
             res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
             res.end(buf)
+            return
+          }
+
+          // UPLOAD background: POST /api/slides/:id/bg
+          const bgUpMatch = req.url.match(/^\/api\/slides\/([\w-]+)\/bg$/)
+          if (bgUpMatch && req.method === 'POST') {
+            const id = bgUpMatch[1]
+            const deckDir = path.join(NOTES_DIR, id)
+            if (!fs.existsSync(deckDir)) {
+              res.statusCode = 404
+              res.end(JSON.stringify({ error: 'Deck not found' }))
+              return
+            }
+            const buf = await readBodyRaw(req)
+            const mime = detectMime(buf)
+            if (!['image/png', 'image/jpeg'].includes(mime)) {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Only PNG and JPEG are supported' }))
+              return
+            }
+            fs.writeFileSync(path.join(deckDir, 'bg'), buf)
+            res.end(JSON.stringify({ ok: true }))
+            return
+          }
+
+          // SERVE background: GET /api/slides/:id/bg
+          const bgGetMatch = req.url.match(/^\/api\/slides\/([\w-]+)\/bg$/)
+          if (bgGetMatch && req.method === 'GET') {
+            const id = bgGetMatch[1]
+            const bgPath = path.join(NOTES_DIR, id, 'bg')
+            if (!fs.existsSync(bgPath)) {
+              res.statusCode = 404
+              res.end(JSON.stringify({ error: 'No background' }))
+              return
+            }
+            const buf = fs.readFileSync(bgPath)
+            const mime = detectMime(buf)
+            res.setHeader('Content-Type', mime)
+            res.setHeader('Content-Length', buf.length)
+            res.setHeader('Cache-Control', 'no-cache')
+            res.end(buf)
+            return
+          }
+
+          // DELETE background: DELETE /api/slides/:id/bg
+          const bgDelMatch = req.url.match(/^\/api\/slides\/([\w-]+)\/bg$/)
+          if (bgDelMatch && req.method === 'DELETE') {
+            const id = bgDelMatch[1]
+            const bgPath = path.join(NOTES_DIR, id, 'bg')
+            if (fs.existsSync(bgPath)) {
+              fs.unlinkSync(bgPath)
+            }
+            res.end(JSON.stringify({ ok: true }))
             return
           }
 
