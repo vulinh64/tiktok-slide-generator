@@ -185,14 +185,15 @@ export function slidesPlugin(): Plugin {
     name: 'slides-api',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        if (!req.url?.startsWith('/api/slides')) return next()
+        const urlPath = req.url?.split('?')[0]
+        if (!urlPath?.startsWith('/api/slides')) return next()
 
         res.setHeader('Content-Type', 'application/json')
         ensureDir(NOTES_DIR)
 
         try {
           // LIST all slide decks: GET /api/slides
-          if (req.url === '/api/slides' && req.method === 'GET') {
+          if (urlPath === '/api/slides' && req.method === 'GET') {
             const entries = readRootIndex()
 
             const decks = entries.map((entry) => {
@@ -212,7 +213,7 @@ export function slidesPlugin(): Plugin {
           }
 
           // SAVE a slide deck: POST /api/slides
-          if (req.url === '/api/slides' && req.method === 'POST') {
+          if (urlPath === '/api/slides' && req.method === 'POST') {
             const body = JSON.parse(await readBody(req))
             const id = body.id || formatTimestamp()
             const deckDir = path.join(NOTES_DIR, id)
@@ -279,7 +280,7 @@ export function slidesPlugin(): Plugin {
           }
 
           // GET a single deck: GET /api/slides/:id
-          const getMatch = req.url.match(/^\/api\/slides\/([\w-]+)$/)
+          const getMatch = urlPath.match(/^\/api\/slides\/([\w-]+)$/)
           if (getMatch && req.method === 'GET') {
             const id = getMatch[1]
             const deckDir = path.join(NOTES_DIR, id)
@@ -309,7 +310,7 @@ export function slidesPlugin(): Plugin {
           }
 
           // DELETE a deck: DELETE /api/slides/:id
-          const delMatch = req.url.match(/^\/api\/slides\/([\w-]+)$/)
+          const delMatch = urlPath.match(/^\/api\/slides\/([\w-]+)$/)
           if (delMatch && req.method === 'DELETE') {
             const id = delMatch[1]
             const deckDir = path.join(NOTES_DIR, id)
@@ -322,7 +323,7 @@ export function slidesPlugin(): Plugin {
           }
 
           // UPLOAD image: POST /api/slides/:id/images
-          const imgUpMatch = req.url.match(/^\/api\/slides\/([\w-]+)\/images$/)
+          const imgUpMatch = urlPath.match(/^\/api\/slides\/([\w-]+)\/images$/)
           if (imgUpMatch && req.method === 'POST') {
             const id = imgUpMatch[1]
             const deckDir = path.join(NOTES_DIR, id)
@@ -354,7 +355,7 @@ export function slidesPlugin(): Plugin {
           }
 
           // SERVE image: GET /api/slides/:id/images/:name
-          const imgGetMatch = req.url.match(/^\/api\/slides\/([\w-]+)\/images\/(img-\d{4})$/)
+          const imgGetMatch = urlPath.match(/^\/api\/slides\/([\w-]+)\/images\/(img-\d{4})$/)
           if (imgGetMatch && req.method === 'GET') {
             const id = imgGetMatch[1]
             const imgName = imgGetMatch[2]
@@ -374,7 +375,7 @@ export function slidesPlugin(): Plugin {
           }
 
           // UPLOAD background: POST /api/slides/:id/bg
-          const bgUpMatch = req.url.match(/^\/api\/slides\/([\w-]+)\/bg$/)
+          const bgUpMatch = urlPath.match(/^\/api\/slides\/([\w-]+)\/bg$/)
           if (bgUpMatch && req.method === 'POST') {
             const id = bgUpMatch[1]
             const deckDir = path.join(NOTES_DIR, id)
@@ -396,7 +397,7 @@ export function slidesPlugin(): Plugin {
           }
 
           // SERVE background: GET /api/slides/:id/bg
-          const bgGetMatch = req.url.match(/^\/api\/slides\/([\w-]+)\/bg$/)
+          const bgGetMatch = urlPath.match(/^\/api\/slides\/([\w-]+)\/bg$/)
           if (bgGetMatch && req.method === 'GET') {
             const id = bgGetMatch[1]
             const bgPath = path.join(NOTES_DIR, id, 'bg')
@@ -415,7 +416,7 @@ export function slidesPlugin(): Plugin {
           }
 
           // DELETE background: DELETE /api/slides/:id/bg
-          const bgDelMatch = req.url.match(/^\/api\/slides\/([\w-]+)\/bg$/)
+          const bgDelMatch = urlPath.match(/^\/api\/slides\/([\w-]+)\/bg$/)
           if (bgDelMatch && req.method === 'DELETE') {
             const id = bgDelMatch[1]
             const bgPath = path.join(NOTES_DIR, id, 'bg')

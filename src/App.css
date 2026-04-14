@@ -162,15 +162,15 @@
 .slide-canvas {
   width: 960px;
   height: 1600px;
-  background: #ffffff;
+  background-color: #ffffff;
   color: #1a1a1a;
   overflow-y: auto;
   position: relative;
-  transition: background 0.25s ease, color 0.25s ease;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 .slide-canvas.dark {
-  background: #1a1a2e;
+  background-color: #1a1a2e;
   color: #e0e0e0;
 }
 
