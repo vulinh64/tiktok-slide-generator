@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type { Editor as TiptapEditor } from '@tiptap/react'
-import { DEFAULT_META } from '../utils/markdown'
-import type { PageMeta } from '../utils/markdown'
+import { DEFAULT_META } from '../utils/page-meta'
+import type { PageMeta } from '../utils/page-meta'
 
 const DEFAULT_PAGE = '<h1>New Page</h1><p>Start writing...</p>'
 
@@ -14,6 +14,7 @@ export function usePages(editor: TiptapEditor | null) {
   const pagesRef = useRef(pages)
   const activePageRef = useRef(activePage)
   const metaRef = useRef<PageMeta[]>([{ ...DEFAULT_META }])
+  const dirtyRef = useRef<boolean[]>([false])
 
   // Keep refs in sync
   useEffect(() => { pagesRef.current = pages }, [pages])
@@ -27,6 +28,7 @@ export function usePages(editor: TiptapEditor | null) {
       const idx = activePageRef.current
       const html = editor.getHTML()
       pagesRef.current[idx] = html
+      dirtyRef.current[idx] = true
       setPages([...pagesRef.current])
     }
     editor.on('update', onUpdate)
@@ -57,6 +59,7 @@ export function usePages(editor: TiptapEditor | null) {
     // Save current page
     pagesRef.current[activePageRef.current] = editor.getHTML()
     pagesRef.current.push(DEFAULT_PAGE)
+    dirtyRef.current.push(false)
     metaRef.current.push({ ...DEFAULT_META })
     const newIndex = pagesRef.current.length - 1
     // Switch to new page
@@ -75,6 +78,7 @@ export function usePages(editor: TiptapEditor | null) {
       pagesRef.current[activePageRef.current] = editor?.getHTML() || pagesRef.current[activePageRef.current]
       // Remove the page
       pagesRef.current.splice(index, 1)
+      dirtyRef.current.splice(index, 1)
       metaRef.current.splice(index, 1)
       // Figure out which page to show
       let newActive = activePageRef.current
@@ -110,6 +114,7 @@ export function usePages(editor: TiptapEditor | null) {
       if (!editor) return
       const p = htmlPages.length > 0 ? htmlPages : [DEFAULT_PAGE]
       pagesRef.current = [...p]
+      dirtyRef.current = p.map(() => false)
       metaRef.current = p.map((_, i) => ({ ...DEFAULT_META, ...metas?.[i] }))
       suppressSave.current = true
       editor.commands.setContent(p[0])
@@ -135,7 +140,20 @@ export function usePages(editor: TiptapEditor | null) {
   const updatePageMeta = useCallback((meta: Partial<PageMeta>) => {
     const idx = activePageRef.current
     metaRef.current[idx] = { ...metaRef.current[idx], ...meta }
+    dirtyRef.current[idx] = true
     setPageMeta({ ...metaRef.current[idx] })
+  }, [])
+
+  const isPageDirty = useCallback((index: number): boolean => {
+    return dirtyRef.current[index] ?? false
+  }, [])
+
+  const hasDirtyPages = useCallback((): boolean => {
+    return dirtyRef.current.some(Boolean)
+  }, [])
+
+  const markAllClean = useCallback(() => {
+    dirtyRef.current = dirtyRef.current.map(() => false)
   }, [])
 
   return {
@@ -150,5 +168,8 @@ export function usePages(editor: TiptapEditor | null) {
     getAllPages,
     getAllMetas,
     updatePageMeta,
+    isPageDirty,
+    hasDirtyPages,
+    markAllClean,
   }
 }

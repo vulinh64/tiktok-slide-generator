@@ -8,7 +8,8 @@ import { useSlideEditor } from './hooks/useSlideEditor'
 import { useSessionState } from './hooks/useSessionState'
 import { useSlides } from './hooks/useSlides'
 import { usePages } from './hooks/usePages'
-import { htmlToMarkdown, markdownToHtml, parseFrontMatter, FONT_OPTIONS } from './utils/markdown'
+import { htmlToMarkdown, markdownToHtml, parseFrontMatter, FONT_OPTIONS } from './utils/page-meta'
+import { SaveToast, useSaveToast } from './components/SaveToast'
 import './App.css'
 
 function App() {
@@ -32,7 +33,11 @@ function App() {
     getAllPages,
     getAllMetas,
     updatePageMeta,
+    isPageDirty,
+    markAllClean,
   } = usePages(editor)
+
+  const { message: toastMessage, showToast } = useSaveToast()
 
   const fontScale = pageMeta.fontScale
   const marginScale = pageMeta.marginScale
@@ -187,37 +192,49 @@ function App() {
     }
   }, [editor, activePage, switchPage, getAllPages, getAllMetas, currentDeckTitle])
 
-  // Wrap page switching to auto-persist to disk
+  // Wrap page switching to auto-persist dirty pages to disk
   const handlePageSwitch = useCallback(
     (index: number) => {
+      const wasDirty = isPageDirty(activePage)
       switchPage(index)
-      // Fire-and-forget persist after switching
-      persistCurrentDeck()
+      if (wasDirty) {
+        persistCurrentDeck()
+        markAllClean()
+        showToast(`Page ${activePage + 1} saved`)
+      }
     },
-    [switchPage, persistCurrentDeck],
+    [switchPage, persistCurrentDeck, isPageDirty, activePage, markAllClean, showToast],
   )
 
   const handleAddPage = useCallback(() => {
     addPage()
-    // Fire-and-forget persist after adding
     persistCurrentDeck()
-  }, [addPage, persistCurrentDeck])
+    markAllClean()
+    showToast('Page added and saved')
+  }, [addPage, persistCurrentDeck, markAllClean, showToast])
 
   const handleDeletePage = useCallback(
     (index: number) => {
       deletePage(index)
-      // Fire-and-forget persist after deleting
       persistCurrentDeck()
+      markAllClean()
+      showToast('Page deleted and saved')
     },
-    [deletePage, persistCurrentDeck],
+    [deletePage, persistCurrentDeck, markAllClean, showToast],
   )
 
   const handleRename = useCallback(() => {
     const name = window.prompt('Slideshow name:', currentDeckTitle || '')
     if (name !== null) {
       setCurrentDeckTitle(name)
+      // Renaming always persists; title changed + flush any dirty pages
+      setTimeout(() => {
+        persistCurrentDeck()
+        markAllClean()
+        showToast('Renamed and saved')
+      }, 0)
     }
-  }, [currentDeckTitle])
+  }, [currentDeckTitle, persistCurrentDeck, markAllClean, showToast])
 
   const handleBgUpload = useCallback(() => {
     if (!currentDeckId) return
@@ -282,6 +299,12 @@ function App() {
     },
     [deleteDeck],
   )
+
+  const handleManualSave = useCallback(() => {
+    persistCurrentDeck()
+    markAllClean()
+    showToast('Saved')
+  }, [persistCurrentDeck, markAllClean, showToast])
 
   // Go back to home from editor
   const handleBackToHome = useCallback(async () => {
@@ -379,6 +402,9 @@ function App() {
             <option value={70}>Zoom 70%</option>
             <option value={100}>Zoom 100%</option>
           </select>
+          <button className="mode-btn" onClick={handleManualSave}>
+            Save
+          </button>
           <button className="export-btn" onClick={handleExport}>
             Export PNG
           </button>
@@ -443,6 +469,8 @@ function App() {
           </div>
         </div>
       </main>
+
+      <SaveToast message={toastMessage} />
 
       {exportState !== 'idle' && (
         <div className="export-overlay">

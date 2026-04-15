@@ -142,7 +142,7 @@ function rebuildRootIndex(): RootIndex {
   const entries: RootIndex = dirs.map((entry) => {
     const deckDir = path.join(NOTES_DIR, entry.name)
     const info = readDeckInfo(deckDir)
-    const pageCount = fs.readdirSync(deckDir).filter((f) => f.endsWith('.md')).length
+    const pageCount = fs.readdirSync(deckDir).filter((f) => f.endsWith('.data')).length
     return {
       id: entry.name,
       name: info.name,
@@ -222,14 +222,14 @@ export function slidesPlugin(): Plugin {
             // Remove old .md files
             if (fs.existsSync(deckDir)) {
               fs.readdirSync(deckDir)
-                .filter((f) => f.endsWith('.md'))
+                .filter((f) => f.endsWith('.data'))
                 .forEach((f) => fs.unlinkSync(path.join(deckDir, f)))
             }
 
             // Write pages
             const pages: string[] = body.pages || []
             pages.forEach((content: string, i: number) => {
-              fs.writeFileSync(path.join(deckDir, `${padPage(i)}.md`), content, 'utf-8')
+              fs.writeFileSync(path.join(deckDir, `${padPage(i)}.data`), content, 'utf-8')
             })
 
             // Read existing info to preserve createdAt on updates
@@ -292,7 +292,7 @@ export function slidesPlugin(): Plugin {
 
             const info = readDeckInfo(deckDir)
             const mdFiles = fs.readdirSync(deckDir)
-              .filter((f) => f.endsWith('.md'))
+              .filter((f) => f.endsWith('.data'))
               .sort()
             const pages = mdFiles.map((f) => fs.readFileSync(path.join(deckDir, f), 'utf-8'))
 

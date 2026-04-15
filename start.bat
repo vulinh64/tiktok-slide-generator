@@ -1,6 +1,12 @@
 @echo off
 setlocal ENABLEDELAYEDEXPANSION
 
+git pull --ff-only origin
+if %ERRORLEVEL% neq 0 (
+    echo Git pull failed. Exiting.
+    exit /b 1
+)
+
 docker info >nul 2>&1
 if %ERRORLEVEL%==0 (
     echo Docker is already running.
