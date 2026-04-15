@@ -82,18 +82,8 @@ function nextImageName(deckDir: string): string {
   return `img-${String(next).padStart(4, '0')}`
 }
 
-interface ImageEntry {
-  name: string
-  mime: string
-  size: number
-  width: number
-  addedAt: string
-}
-
 interface DeckInfo {
   name: string
-  pageCount: number
-  imgs: ImageEntry[]
   createdAt: string
   updatedAt: string
 }
@@ -101,15 +91,12 @@ interface DeckInfo {
 interface RootIndexEntry {
   id: string
   name: string
-  pageCount: number
 }
 
 type RootIndex = RootIndexEntry[]
 
 const DEFAULT_INFO: DeckInfo = {
   name: 'Untitled',
-  pageCount: 0,
-  imgs: [],
   createdAt: '',
   updatedAt: '',
 }
@@ -142,11 +129,9 @@ function rebuildRootIndex(): RootIndex {
   const entries: RootIndex = dirs.map((entry) => {
     const deckDir = path.join(NOTES_DIR, entry.name)
     const info = readDeckInfo(deckDir)
-    const pageCount = fs.readdirSync(deckDir).filter((f) => f.endsWith('.data')).length
     return {
       id: entry.name,
       name: info.name,
-      pageCount,
     }
   })
 
@@ -199,12 +184,13 @@ export function slidesPlugin(): Plugin {
             const decks = entries.map((entry) => {
               const deckDir = path.join(NOTES_DIR, entry.id)
               const info = readDeckInfo(deckDir)
+              const pageCount = fs.readdirSync(deckDir).filter((f) => f.endsWith('.data')).length
               return {
                 id: entry.id,
                 title: entry.name,
                 createdAt: info.createdAt || parseTimestamp(entry.id),
                 updatedAt: info.updatedAt,
-                pageCount: entry.pageCount,
+                pageCount,
               }
             })
 
@@ -238,31 +224,8 @@ export function slidesPlugin(): Plugin {
               : null
             const now = parseTimestamp(formatTimestamp())
 
-            // Scan pages for image widths (from data-width attributes in HTML img tags)
-            const widthMap = new Map<string, number>()
-            const allContent = pages.join('\n')
-            const imgWidthRe = /data-width="(\d+)"[^>]*(?:src|style)[^>]*\/api\/slides\/[\w-]+\/images\/(img-\d{4})/g
-            const imgWidthRe2 = /\/api\/slides\/[\w-]+\/images\/(img-\d{4})[^>]*data-width="(\d+)"/g
-            let wm
-            while ((wm = imgWidthRe.exec(allContent)) !== null) {
-              widthMap.set(wm[2], Number(wm[1]))
-            }
-            while ((wm = imgWidthRe2.exec(allContent)) !== null) {
-              widthMap.set(wm[1], Number(wm[2]))
-            }
-
-            // Preserve existing imgs and update widths
-            const existingImgs: ImageEntry[] = existingInfo?.imgs || []
-            for (const img of existingImgs) {
-              if (widthMap.has(img.name)) {
-                img.width = widthMap.get(img.name)!
-              }
-            }
-
             const info: DeckInfo = {
               name: body.title || 'Untitled',
-              pageCount: pages.length,
-              imgs: existingImgs,
               createdAt: existingInfo?.createdAt || parseTimestamp(id),
               updatedAt: now,
             }
@@ -272,7 +235,6 @@ export function slidesPlugin(): Plugin {
             upsertRootIndex({
               id,
               name: info.name,
-              pageCount: info.pageCount,
             })
 
             res.end(JSON.stringify({ id, ...info, title: info.name }))
@@ -299,7 +261,6 @@ export function slidesPlugin(): Plugin {
             res.end(JSON.stringify({
               id,
               title: info.name,
-              imgs: info.imgs || [],
               hasBg: hasBgFile(deckDir),
               createdAt: info.createdAt || parseTimestamp(id),
               updatedAt: info.updatedAt,
@@ -336,18 +297,6 @@ export function slidesPlugin(): Plugin {
             const name = nextImageName(deckDir)
             const mime = detectMime(buf)
             fs.writeFileSync(path.join(deckDir, name), buf)
-
-            // Record in info.json
-            const info = readDeckInfo(deckDir)
-            info.imgs = info.imgs || []
-            info.imgs.push({
-              name,
-              mime,
-              size: buf.length,
-              width: 100,
-              addedAt: parseTimestamp(formatTimestamp()),
-            })
-            writeDeckInfo(deckDir, info)
 
             const url = `/api/slides/${id}/images/${name}`
             res.end(JSON.stringify({ name, url, mime, size: buf.length }))
