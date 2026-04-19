@@ -12,6 +12,10 @@ import { htmlToMarkdown, markdownToHtml, parseFrontMatter, FONT_OPTIONS } from '
 import { SaveToast, useSaveToast } from './components/SaveToast'
 import './App.css'
 
+function skipProseMirrorSeparator(node: Node): boolean {
+  return !(node instanceof HTMLImageElement && node.classList.contains('ProseMirror-separator'))
+}
+
 function App() {
   const [screen, setScreen] = useState<'home' | 'editor'>('home')
   const [mode, setMode] = useState<'edit' | 'preview'>('edit')
@@ -43,10 +47,12 @@ function App() {
   const marginScale = pageMeta.marginScale
   const dark = pageMeta.dark
   const fontFamily = pageMeta.fontFamily
+  const customCss = pageMeta.customCss ?? ''
   const setFontScale = useCallback((v: number) => updatePageMeta({ fontScale: v }), [updatePageMeta])
   const setMarginScale = useCallback((v: number) => updatePageMeta({ marginScale: v }), [updatePageMeta])
   const setDark = useCallback((v: boolean) => updatePageMeta({ dark: v }), [updatePageMeta])
   const setFontFamily = useCallback((v: string) => updatePageMeta({ fontFamily: v }), [updatePageMeta])
+  const setCustomCss = useCallback((v: string) => updatePageMeta({ customCss: v }), [updatePageMeta])
 
   // Refs for the beforeunload handler and persistCurrentDeck
   const currentDeckIdRef = useRef(currentDeckId)
@@ -105,6 +111,7 @@ function App() {
         height: 1600,
         pixelRatio: 2,
         backgroundColor: dark ? '#1a1a2e' : '#ffffff',
+        filter: skipProseMirrorSeparator,
       })
       const link = document.createElement('a')
       const pageNum = String(activePage).padStart(4, '0')
@@ -138,6 +145,13 @@ function App() {
         className: canvas.className,
       }
 
+      // Own <style> element mounted at end of <body> so it appears after the
+      // React-managed style tag in source order; doubled selector gives it
+      // higher specificity too, so per-iteration CSS always wins
+      const exportStyle = document.createElement('style')
+      exportStyle.id = 'export-custom-css'
+      document.body.appendChild(exportStyle)
+
       for (let i = 0; i < allPages.length; i++) {
         const meta = allMetas[i]
         const isDark = meta.dark ?? true
@@ -150,6 +164,9 @@ function App() {
         canvas.style.fontSize = `${(18 * fs) / 100}px`
         canvas.style.fontFamily = ff
         canvas.style.setProperty('--slide-padding-x', `${(48 * ms) / 100}px`)
+        exportStyle.textContent = meta.customCss && meta.customCss.trim()
+          ? `#slide-canvas#slide-canvas { ${meta.customCss} }`
+          : ''
 
         // Set the content
         editor.commands.setContent(allPages[i])
@@ -162,6 +179,7 @@ function App() {
           height: 1600,
           pixelRatio: 2,
           backgroundColor: isDark ? '#1a1a2e' : '#ffffff',
+          filter: skipProseMirrorSeparator,
         })
 
         const base64 = dataUrl.split(',')[1]
@@ -172,6 +190,7 @@ function App() {
       canvas.className = origStyle.className
       canvas.style.fontSize = origStyle.fontSize
       canvas.style.fontFamily = origStyle.fontFamily
+      exportStyle.remove()
 
       // Restore original page
       switchPage(originalPage)
@@ -187,6 +206,7 @@ function App() {
       setExportState('done')
     } catch (err) {
       console.error('Export all failed:', err)
+      document.getElementById('export-custom-css')?.remove()
       setExportState('idle')
       switchPage(originalPage)
     }
@@ -432,8 +452,18 @@ function App() {
           onDeletePage={handleDeletePage}
         />
       </div>
+      {customCss.trim() && (
+        <style>{`#slide-canvas { ${customCss} }`}</style>
+      )}
       <main className="app-main">
-        {mode === 'edit' && editor && <Toolbar editor={editor} deckId={currentDeckId} />}
+        {mode === 'edit' && editor && (
+          <Toolbar
+            editor={editor}
+            deckId={currentDeckId}
+            customCss={customCss}
+            onChangeCustomCss={setCustomCss}
+          />
+        )}
         <div
           className="canvas-zoom-container"
           style={{

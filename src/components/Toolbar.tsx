@@ -1,10 +1,12 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Editor as TiptapEditor } from '@tiptap/react'
 import './Toolbar.css'
 
 interface ToolbarProps {
   editor: TiptapEditor
   deckId?: string | null
+  customCss?: string
+  onChangeCustomCss?: (css: string) => void
 }
 
 async function uploadImage(deckId: string, file: File): Promise<string | null> {
@@ -19,8 +21,19 @@ async function uploadImage(deckId: string, file: File): Promise<string | null> {
   return data.url as string
 }
 
-export function Toolbar({ editor, deckId }: ToolbarProps) {
+export function Toolbar({ editor, deckId, customCss = '', onChangeCustomCss }: ToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [cssModalOpen, setCssModalOpen] = useState(false)
+  const [cssDraft, setCssDraft] = useState(customCss)
+
+  useEffect(() => {
+    if (cssModalOpen) setCssDraft(customCss)
+  }, [cssModalOpen, customCss])
+
+  const saveCss = useCallback(() => {
+    onChangeCustomCss?.(cssDraft)
+    setCssModalOpen(false)
+  }, [cssDraft, onChangeCustomCss])
 
   const addImage = useCallback(() => {
     if (!deckId) {
@@ -238,6 +251,13 @@ export function Toolbar({ editor, deckId }: ToolbarProps) {
         >
           &mdash; HR
         </button>
+        <button
+          className={`toolbar-btn ${customCss.trim() ? 'active' : ''}`}
+          onClick={() => setCssModalOpen(true)}
+          title="Custom CSS for this page"
+        >
+          CSS
+        </button>
       </div>
 
       <div className="toolbar-divider" />
@@ -261,6 +281,38 @@ export function Toolbar({ editor, deckId }: ToolbarProps) {
           Redo
         </button>
       </div>
+
+      {cssModalOpen && (
+        <div className="css-modal-overlay" onClick={() => setCssModalOpen(false)}>
+          <div className="css-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="css-modal-header">
+              <span>Custom CSS (this page only)</span>
+              <button className="toolbar-btn" onClick={() => setCssModalOpen(false)}>
+                &times;
+              </button>
+            </div>
+            <p className="css-modal-hint">
+              Scoped to <code>#slide-canvas</code>. Write selectors as if you're inside the slide, e.g.{' '}
+              <code>h1 {'{'} color: red; {'}'}</code>. Applies in Edit and Preview.
+            </p>
+            <textarea
+              className="css-modal-textarea"
+              value={cssDraft}
+              onChange={(e) => setCssDraft(e.target.value)}
+              placeholder="h1 { color: #ffcc00; }\np { letter-spacing: 0.05em; }"
+              spellCheck={false}
+            />
+            <div className="css-modal-actions">
+              <button className="toolbar-btn" onClick={() => setCssModalOpen(false)}>
+                Cancel
+              </button>
+              <button className="toolbar-btn active" onClick={saveCss}>
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

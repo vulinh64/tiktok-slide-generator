@@ -116,3 +116,73 @@
   background: #16213e;
   color: #e0e0e0;
 }
+
+.css-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.css-modal {
+  background: #16213e;
+  color: #e0e0e0;
+  border-radius: 0.5em;
+  padding: 1em;
+  width: min(40em, 90vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  box-shadow: 0 0.5em 2em rgba(0, 0, 0, 0.5);
+}
+
+.css-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+}
+
+.css-modal-hint {
+  margin: 0;
+  color: #a0a0b8;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.css-modal-hint code {
+  background: #0f3460;
+  padding: 0.0625em 0.3125em;
+  border-radius: 0.1875em;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 0.875em;
+}
+
+.css-modal-textarea {
+  flex: 1;
+  min-height: 16em;
+  background: #0f3460;
+  color: #e0e0e0;
+  border: 0.0625em solid #0f3460;
+  border-radius: 0.25em;
+  padding: 0.75em;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+}
+
+.css-modal-textarea:focus {
+  border-color: #e94560;
+}
+
+.css-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5em;
+}

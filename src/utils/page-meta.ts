@@ -3,6 +3,7 @@ export interface PageMeta {
   marginScale: number
   dark: boolean
   fontFamily: string
+  customCss?: string
 }
 
 export const FONT_OPTIONS: { value: string; label: string; css: string }[] = [
@@ -26,6 +27,12 @@ export function htmlToMarkdown(html: string, meta?: PageMeta): string {
   if (meta.marginScale !== DEFAULT_META.marginScale) lines.push(`marginScale: ${meta.marginScale}`)
   if (meta.dark !== DEFAULT_META.dark) lines.push(`dark: ${meta.dark}`)
   if (meta.fontFamily !== DEFAULT_META.fontFamily) lines.push(`fontFamily: ${meta.fontFamily}`)
+  if (meta.customCss && meta.customCss.trim()) {
+    lines.push('customCss: |')
+    for (const l of meta.customCss.split(/\r?\n/)) {
+      lines.push(`  ${l}`)
+    }
+  }
   if (lines.length === 0) return html
   return ['---', ...lines, '---', ''].join('\n') + html
 }
@@ -37,13 +44,35 @@ export function parseFrontMatter(md: string): { content: string; meta: PageMeta 
   if (!fmMatch) return { content: md, meta }
 
   const body = fmMatch[1]
-  for (const line of body.split('\n')) {
+  const lines = body.split(/\r?\n/)
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const block = line.match(/^(\w+):\s*\|\s*$/)
+    if (block) {
+      const key = block[1]
+      const collected: string[] = []
+      let indent = ''
+      let j = i + 1
+      for (; j < lines.length; j++) {
+        const l = lines[j]
+        if (/^\w+:/.test(l)) break
+        if (!indent && l.trim()) {
+          const m = l.match(/^(\s+)/)
+          indent = m ? m[1] : ''
+        }
+        collected.push(l.startsWith(indent) ? l.slice(indent.length) : l)
+      }
+      const value = collected.join('\n').replace(/\n+$/, '')
+      if (key === 'customCss') meta.customCss = value
+      i = j - 1
+      continue
+    }
     const kv = line.match(/^(\w+):\s*(.+)$/)
     if (!kv) continue
     if (kv[1] === 'fontScale') meta.fontScale = Number(kv[2]) || 100
-    if (kv[1] === 'marginScale') meta.marginScale = Number(kv[2]) || 100
-    if (kv[1] === 'dark') meta.dark = kv[2].trim() === 'true'
-    if (kv[1] === 'fontFamily') meta.fontFamily = kv[2].trim()
+    else if (kv[1] === 'marginScale') meta.marginScale = Number(kv[2]) || 100
+    else if (kv[1] === 'dark') meta.dark = kv[2].trim() === 'true'
+    else if (kv[1] === 'fontFamily') meta.fontFamily = kv[2].trim()
   }
   const content = md.slice(fmMatch[0].length)
   return { content, meta }

@@ -38,6 +38,10 @@ interface PreviewProps {
   editor: TiptapEditor | null
 }
 
+function preserveEmptyLines(html: string): string {
+  return html.replace(/<p([^>]*)><\/p>/g, '<p$1><br></p>')
+}
+
 function highlightCode(html: string): string {
   if (!shikiInstance) return html
 
@@ -76,7 +80,7 @@ export function Preview({ editor }: PreviewProps) {
   const html = useMemo(() => {
     if (!editor) return ''
     const raw = editor.getHTML()
-    return highlightCode(raw)
+    return highlightCode(preserveEmptyLines(raw))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, editor?.getHTML(), shikiLoaded])
 
