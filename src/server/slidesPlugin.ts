@@ -34,10 +34,6 @@ function ensureDir(dir: string) {
   }
 }
 
-function padPage(n: number): string {
-  return String(n).padStart(4, '0')
-}
-
 function readBody(req: import('http').IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let data = ''
@@ -90,9 +86,15 @@ interface ImageEntry {
   addedAt: string
 }
 
+// URL-safe image name: letters, digits, dot, underscore, hyphen
+const IMG_NAME_RE = /^[a-zA-Z0-9._-]+$/
+function isValidImageName(name: string): boolean {
+  return IMG_NAME_RE.test(name) && name.length > 0 && name.length <= 100 && !name.includes('..')
+}
+
 interface DeckInfo {
   name: string
-  pageCount: number
+  customCss?: string
   imgs: ImageEntry[]
   createdAt: string
   updatedAt: string
@@ -101,17 +103,108 @@ interface DeckInfo {
 interface RootIndexEntry {
   id: string
   name: string
-  pageCount: number
 }
 
 type RootIndex = RootIndexEntry[]
 
 const DEFAULT_INFO: DeckInfo = {
   name: 'Untitled',
-  pageCount: 0,
   imgs: [],
   createdAt: '',
   updatedAt: '',
+}
+
+// post.json schema
+const POST_FILE = 'post.json'
+const POST_VERSION = 1
+
+interface SerializedPage {
+  meta: Record<string, unknown>
+  html: string
+}
+
+interface PostFile {
+  version: number
+  pages: SerializedPage[]
+}
+
+function postPath(deckDir: string): string {
+  return path.join(deckDir, POST_FILE)
+}
+
+function readPost(deckDir: string): PostFile {
+  const p = postPath(deckDir)
+  if (fs.existsSync(p)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(p, 'utf-8')) as PostFile
+      if (Array.isArray(parsed.pages)) return parsed
+    } catch { /* fall through to migration */ }
+  }
+  return migrateLoosePages(deckDir)
+}
+
+function writePost(deckDir: string, pages: SerializedPage[]) {
+  const p = postPath(deckDir)
+  const tmp = `${p}.tmp`
+  const payload: PostFile = { version: POST_VERSION, pages }
+  fs.writeFileSync(tmp, JSON.stringify(payload, null, 2), 'utf-8')
+  fs.renameSync(tmp, p)
+}
+
+// One-shot migration from NNNN.data + YAML-ish front matter → post.json,
+// then deletes the loose files. If no .data files are found, returns empty.
+function migrateLoosePages(deckDir: string): PostFile {
+  if (!fs.existsSync(deckDir)) return { version: POST_VERSION, pages: [] }
+  const dataFiles = fs.readdirSync(deckDir)
+    .filter((f) => /^\d{4}\.data$/.test(f))
+    .sort()
+  const pages: SerializedPage[] = dataFiles.map((f) => {
+    const raw = fs.readFileSync(path.join(deckDir, f), 'utf-8')
+    return parseLegacyPage(raw)
+  })
+  if (pages.length > 0) {
+    writePost(deckDir, pages)
+    for (const f of dataFiles) fs.unlinkSync(path.join(deckDir, f))
+  }
+  return { version: POST_VERSION, pages }
+}
+
+// Legacy format: optional YAML-ish front matter (--- ... ---) then HTML body.
+// Mirrors the client's old parseFrontMatter so migration preserves meta.
+function parseLegacyPage(md: string): SerializedPage {
+  const meta: Record<string, unknown> = {}
+  const fm = md.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/)
+  if (!fm) return { meta, html: md }
+  const lines = fm[1].split(/\r?\n/)
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const block = line.match(/^(\w+):\s*\|\s*$/)
+    if (block) {
+      const key = block[1]
+      const collected: string[] = []
+      let indent = ''
+      let j = i + 1
+      for (; j < lines.length; j++) {
+        const l = lines[j]
+        if (/^\w+:/.test(l)) break
+        if (!indent && l.trim()) {
+          const m = l.match(/^(\s+)/)
+          indent = m ? m[1] : ''
+        }
+        collected.push(l.startsWith(indent) ? l.slice(indent.length) : l)
+      }
+      meta[key] = collected.join('\n').replace(/\n+$/, '')
+      i = j - 1
+      continue
+    }
+    const kv = line.match(/^(\w+):\s*(.+)$/)
+    if (!kv) continue
+    const [, k, v] = kv
+    if (k === 'fontScale' || k === 'marginScale') meta[k] = Number(v) || undefined
+    else if (k === 'dark') meta[k] = v.trim() === 'true'
+    else meta[k] = v.trim()
+  }
+  return { meta, html: md.slice(fm[0].length) }
 }
 
 function readDeckInfo(deckDir: string): DeckInfo {
@@ -142,11 +235,9 @@ function rebuildRootIndex(): RootIndex {
   const entries: RootIndex = dirs.map((entry) => {
     const deckDir = path.join(NOTES_DIR, entry.name)
     const info = readDeckInfo(deckDir)
-    const pageCount = fs.readdirSync(deckDir).filter((f) => f.endsWith('.data')).length
     return {
       id: entry.name,
       name: info.name,
-      pageCount,
     }
   })
 
@@ -204,7 +295,6 @@ export function slidesPlugin(): Plugin {
                 title: entry.name,
                 createdAt: info.createdAt || parseTimestamp(entry.id),
                 updatedAt: info.updatedAt,
-                pageCount: entry.pageCount,
               }
             })
 
@@ -219,18 +309,8 @@ export function slidesPlugin(): Plugin {
             const deckDir = path.join(NOTES_DIR, id)
             ensureDir(deckDir)
 
-            // Remove old .md files
-            if (fs.existsSync(deckDir)) {
-              fs.readdirSync(deckDir)
-                .filter((f) => f.endsWith('.data'))
-                .forEach((f) => fs.unlinkSync(path.join(deckDir, f)))
-            }
-
-            // Write pages
-            const pages: string[] = body.pages || []
-            pages.forEach((content: string, i: number) => {
-              fs.writeFileSync(path.join(deckDir, `${padPage(i)}.data`), content, 'utf-8')
-            })
+            const pages: SerializedPage[] = Array.isArray(body.pages) ? body.pages : []
+            writePost(deckDir, pages)
 
             // Read existing info to preserve createdAt on updates
             const existingInfo = fs.existsSync(path.join(deckDir, INFO_FILE))
@@ -240,9 +320,9 @@ export function slidesPlugin(): Plugin {
 
             // Scan pages for image widths (from data-width attributes in HTML img tags)
             const widthMap = new Map<string, number>()
-            const allContent = pages.join('\n')
-            const imgWidthRe = /data-width="(\d+)"[^>]*(?:src|style)[^>]*\/api\/slides\/[\w-]+\/images\/(img-\d{4})/g
-            const imgWidthRe2 = /\/api\/slides\/[\w-]+\/images\/(img-\d{4})[^>]*data-width="(\d+)"/g
+            const allContent = pages.map((p) => p.html || '').join('\n')
+            const imgWidthRe = /data-width="(\d+)"[^>]*(?:src|style)[^>]*\/api\/slides\/[\w-]+\/images\/([a-zA-Z0-9._-]+)/g
+            const imgWidthRe2 = /\/api\/slides\/[\w-]+\/images\/([a-zA-Z0-9._-]+)[^>]*data-width="(\d+)"/g
             let wm
             while ((wm = imgWidthRe.exec(allContent)) !== null) {
               widthMap.set(wm[2], Number(wm[1]))
@@ -251,7 +331,6 @@ export function slidesPlugin(): Plugin {
               widthMap.set(wm[1], Number(wm[2]))
             }
 
-            // Preserve existing imgs and update widths
             const existingImgs: ImageEntry[] = existingInfo?.imgs || []
             for (const img of existingImgs) {
               if (widthMap.has(img.name)) {
@@ -261,18 +340,22 @@ export function slidesPlugin(): Plugin {
 
             const info: DeckInfo = {
               name: body.title || 'Untitled',
-              pageCount: pages.length,
               imgs: existingImgs,
               createdAt: existingInfo?.createdAt || parseTimestamp(id),
               updatedAt: now,
             }
+            const incomingCss = typeof body.customCss === 'string' ? body.customCss : undefined
+            if (incomingCss !== undefined) {
+              if (incomingCss.trim()) info.customCss = incomingCss
+              // empty/whitespace drops the field entirely
+            } else if (existingInfo?.customCss) {
+              info.customCss = existingInfo.customCss
+            }
             writeDeckInfo(deckDir, info)
 
-            // Upsert into root index
             upsertRootIndex({
               id,
               name: info.name,
-              pageCount: info.pageCount,
             })
 
             res.end(JSON.stringify({ id, ...info, title: info.name }))
@@ -291,20 +374,17 @@ export function slidesPlugin(): Plugin {
             }
 
             const info = readDeckInfo(deckDir)
-            const mdFiles = fs.readdirSync(deckDir)
-              .filter((f) => f.endsWith('.data'))
-              .sort()
-            const pages = mdFiles.map((f) => fs.readFileSync(path.join(deckDir, f), 'utf-8'))
+            const post = readPost(deckDir)
 
             res.end(JSON.stringify({
               id,
               title: info.name,
+              customCss: info.customCss ?? '',
               imgs: info.imgs || [],
               hasBg: hasBgFile(deckDir),
               createdAt: info.createdAt || parseTimestamp(id),
               updatedAt: info.updatedAt,
-              pageCount: pages.length,
-              pages,
+              pages: post.pages,
             }))
             return
           }
@@ -354,8 +434,89 @@ export function slidesPlugin(): Plugin {
             return
           }
 
+          // LIST images: GET /api/slides/:id/images
+          const imgListMatch = urlPath.match(/^\/api\/slides\/([\w-]+)\/images$/)
+          if (imgListMatch && req.method === 'GET') {
+            const id = imgListMatch[1]
+            const deckDir = path.join(NOTES_DIR, id)
+            if (!fs.existsSync(deckDir)) {
+              res.statusCode = 404
+              res.end(JSON.stringify({ error: 'Deck not found' }))
+              return
+            }
+            const info = readDeckInfo(deckDir)
+            res.end(JSON.stringify(info.imgs || []))
+            return
+          }
+
+          // RENAME image (renames file on disk + updates info.json;
+          // caller is responsible for updating URL refs in their pages):
+          // PATCH /api/slides/:id/images/:name  body: { name: newName }
+          const imgPatchMatch = urlPath.match(/^\/api\/slides\/([\w-]+)\/images\/([a-zA-Z0-9._-]+)$/)
+          if (imgPatchMatch && req.method === 'PATCH') {
+            const id = imgPatchMatch[1]
+            const imgName = imgPatchMatch[2]
+            const deckDir = path.join(NOTES_DIR, id)
+            if (!fs.existsSync(deckDir)) {
+              res.statusCode = 404
+              res.end(JSON.stringify({ error: 'Deck not found' }))
+              return
+            }
+            const body = JSON.parse(await readBody(req)) as { name?: string }
+            const newName = (body.name || '').trim()
+            if (!isValidImageName(newName)) {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Invalid name. Use letters, digits, dot, underscore, hyphen.' }))
+              return
+            }
+            const info = readDeckInfo(deckDir)
+            info.imgs = info.imgs || []
+            const entry = info.imgs.find((e) => e.name === imgName)
+            if (!entry) {
+              res.statusCode = 404
+              res.end(JSON.stringify({ error: 'Image not found' }))
+              return
+            }
+            if (newName === imgName) {
+              res.end(JSON.stringify(entry))
+              return
+            }
+            const oldPath = path.join(deckDir, imgName)
+            const newPath = path.join(deckDir, newName)
+            if (fs.existsSync(newPath)) {
+              res.statusCode = 409
+              res.end(JSON.stringify({ error: 'Name already in use' }))
+              return
+            }
+            fs.renameSync(oldPath, newPath)
+            entry.name = newName
+            writeDeckInfo(deckDir, info)
+            res.end(JSON.stringify(entry))
+            return
+          }
+
+          // DELETE image: DELETE /api/slides/:id/images/:name
+          const imgDelMatch = urlPath.match(/^\/api\/slides\/([\w-]+)\/images\/([a-zA-Z0-9._-]+)$/)
+          if (imgDelMatch && req.method === 'DELETE') {
+            const id = imgDelMatch[1]
+            const imgName = imgDelMatch[2]
+            const deckDir = path.join(NOTES_DIR, id)
+            if (!fs.existsSync(deckDir)) {
+              res.statusCode = 404
+              res.end(JSON.stringify({ error: 'Deck not found' }))
+              return
+            }
+            const imgPath = path.join(deckDir, imgName)
+            if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath)
+            const info = readDeckInfo(deckDir)
+            info.imgs = (info.imgs || []).filter((e) => e.name !== imgName)
+            writeDeckInfo(deckDir, info)
+            res.end(JSON.stringify({ ok: true }))
+            return
+          }
+
           // SERVE image: GET /api/slides/:id/images/:name
-          const imgGetMatch = urlPath.match(/^\/api\/slides\/([\w-]+)\/images\/(img-\d{4})$/)
+          const imgGetMatch = urlPath.match(/^\/api\/slides\/([\w-]+)\/images\/([a-zA-Z0-9._-]+)$/)
           if (imgGetMatch && req.method === 'GET') {
             const id = imgGetMatch[1]
             const imgName = imgGetMatch[2]

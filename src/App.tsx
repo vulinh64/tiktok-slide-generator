@@ -4,11 +4,13 @@ import { Preview } from './components/Preview'
 import { Toolbar } from './components/Toolbar'
 import { PageList } from './components/PageList'
 import { Home } from './components/Home'
+import { CssModal } from './components/CssModal'
 import { useSlideEditor } from './hooks/useSlideEditor'
 import { useSessionState } from './hooks/useSessionState'
 import { useSlides } from './hooks/useSlides'
 import { usePages } from './hooks/usePages'
-import { htmlToMarkdown, markdownToHtml, parseFrontMatter, FONT_OPTIONS } from './utils/page-meta'
+import { DEFAULT_META, FONT_OPTIONS } from './utils/page-meta'
+import type { PageMeta } from './utils/page-meta'
 import { SaveToast, useSaveToast } from './components/SaveToast'
 import './App.css'
 
@@ -22,6 +24,8 @@ function App() {
   const [canvasZoom, setCanvasZoom] = useSessionState('slide-canvas-zoom', 50)
   const [currentDeckId, setCurrentDeckId] = useState<string | null>(null)
   const [currentDeckTitle, setCurrentDeckTitle] = useState('')
+  const [slideCss, setSlideCss] = useState('')
+  const [slideCssModalOpen, setSlideCssModalOpen] = useState(false)
   const [bgUrl, setBgUrl] = useState<string | null>(null)
   const { editor, setDeckId } = useSlideEditor()
   const { decks, loading, refresh, saveDeck, loadDeck, deleteDeck } = useSlides()
@@ -39,6 +43,7 @@ function App() {
     updatePageMeta,
     isPageDirty,
     markAllClean,
+    replaceUrlInPages,
   } = usePages(editor)
 
   const { message: toastMessage, showToast } = useSaveToast()
@@ -57,38 +62,42 @@ function App() {
   // Refs for the beforeunload handler and persistCurrentDeck
   const currentDeckIdRef = useRef(currentDeckId)
   const currentDeckTitleRef = useRef(currentDeckTitle)
+  const slideCssRef = useRef(slideCss)
 
   useEffect(() => { currentDeckIdRef.current = currentDeckId; setDeckId(currentDeckId) }, [currentDeckId, setDeckId])
   useEffect(() => { currentDeckTitleRef.current = currentDeckTitle }, [currentDeckTitle])
+  useEffect(() => { slideCssRef.current = slideCss }, [slideCss])
+
+  // Pack in-memory state into the wire format the server expects
+  const buildSerializedPages = useCallback(() => {
+    const allHtml = getAllPages()
+    const metas = getAllMetas()
+    return allHtml.map((html, i) => ({ html, meta: metas[i] }))
+  }, [getAllPages, getAllMetas])
 
   // Persist current deck to disk (fire-and-forget)
   const persistCurrentDeck = useCallback(async () => {
     if (!editor || !currentDeckIdRef.current) return
-    const allHtml = getAllPages()
-    const metas = getAllMetas()
-    const mdPages = allHtml.map((html, i) => htmlToMarkdown(html, metas[i]))
     await saveDeck(
       currentDeckTitleRef.current || 'Untitled',
-      mdPages,
+      buildSerializedPages(),
       currentDeckIdRef.current,
+      slideCssRef.current,
     )
-  }, [editor, getAllPages, getAllMetas, saveDeck])
+  }, [editor, buildSerializedPages, saveDeck])
 
   // Persist on browser close / hard refresh
   useEffect(() => {
     const onBeforeUnload = () => {
       if (!currentDeckIdRef.current) return
-      const allHtml = getAllPages()
-      const metas = getAllMetas()
-      const mdPages = allHtml.map((html, i) => htmlToMarkdown(html, metas[i]))
-      // Use sendBeacon for reliability during unload
       navigator.sendBeacon(
         '/api/slides',
         new Blob(
           [JSON.stringify({
             id: currentDeckIdRef.current,
             title: currentDeckTitleRef.current || 'Untitled',
-            pages: mdPages,
+            pages: buildSerializedPages(),
+            customCss: slideCssRef.current,
           })],
           { type: 'application/json' },
         ),
@@ -96,7 +105,7 @@ function App() {
     }
     window.addEventListener('beforeunload', onBeforeUnload)
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
-  }, [getAllPages, getAllMetas])
+  }, [buildSerializedPages])
 
   const [exportState, setExportState] = useState<'idle' | 'exporting' | 'done'>('idle')
 
@@ -285,12 +294,12 @@ function App() {
     async (id: string) => {
       if (!editor) return
       const deck = await loadDeck(id)
-      const parsed = deck.pages.map((md) => parseFrontMatter(md))
-      const htmlPages = parsed.map((p) => markdownToHtml(p.content))
-      const metas = parsed.map((p) => p.meta)
+      const htmlPages = deck.pages.map((p) => p.html)
+      const metas: PageMeta[] = deck.pages.map((p) => ({ ...DEFAULT_META, ...p.meta }))
       loadPages(htmlPages, metas)
       setCurrentDeckId(deck.id)
       setCurrentDeckTitle(deck.title)
+      setSlideCss(deck.customCss ?? '')
       setBgUrl(deck.hasBg ? `/api/slides/${deck.id}/bg?t=${Date.now()}` : null)
       setMode('edit')
       setScreen('editor')
@@ -303,10 +312,10 @@ function App() {
     if (!editor) return
     const defaultHtml = '<h1>New Slide</h1><p>Start writing...</p>'
     loadPages([defaultHtml])
-    const mdPages = [htmlToMarkdown(defaultHtml)]
-    const id = await saveDeck('Untitled', mdPages)
+    const id = await saveDeck('Untitled', [{ html: defaultHtml, meta: {} }])
     setCurrentDeckId(id)
     setCurrentDeckTitle('')
+    setSlideCss('')
     setBgUrl(null)
     setMode('edit')
     setScreen('editor')
@@ -326,11 +335,29 @@ function App() {
     showToast('Saved')
   }, [persistCurrentDeck, markAllClean, showToast])
 
+  const handleApplySlideCss = useCallback(
+    async (css: string) => {
+      setSlideCss(css)
+      if (!editor || !currentDeckIdRef.current) return
+      // Save immediately with the new value (don't wait for ref sync)
+      await saveDeck(
+        currentDeckTitleRef.current || 'Untitled',
+        buildSerializedPages(),
+        currentDeckIdRef.current,
+        css,
+      )
+      markAllClean()
+      showToast('Slide CSS saved')
+    },
+    [editor, buildSerializedPages, saveDeck, markAllClean, showToast],
+  )
+
   // Go back to home from editor
   const handleBackToHome = useCallback(async () => {
     await persistCurrentDeck()
     setCurrentDeckId(null)
     setCurrentDeckTitle('')
+    setSlideCss('')
     setBgUrl(null)
     await refresh()
     setScreen('home')
@@ -371,6 +398,13 @@ function App() {
             onClick={() => setMode('preview')}
           >
             Preview
+          </button>
+          <button
+            className={`mode-btn ${slideCss.trim() ? 'active' : ''}`}
+            onClick={() => setSlideCssModalOpen(true)}
+            title="Slide CSS — applies to every page in this deck"
+          >
+            Slide CSS
           </button>
           <button
             className={`mode-btn dark-toggle ${dark ? 'active' : ''}`}
@@ -452,8 +486,11 @@ function App() {
           onDeletePage={handleDeletePage}
         />
       </div>
-      {customCss.trim() && (
-        <style>{`#slide-canvas { ${customCss} }`}</style>
+      {slideCss.trim() && (
+        <style>{`#slide-canvas { ${slideCss} }`}</style>
+      )}
+      {customCss.trim() && exportState !== 'exporting' && (
+        <style id="page-custom-css">{`#slide-canvas#slide-canvas { ${customCss} }`}</style>
       )}
       <main className="app-main">
         {mode === 'edit' && editor && (
@@ -462,6 +499,15 @@ function App() {
             deckId={currentDeckId}
             customCss={customCss}
             onChangeCustomCss={setCustomCss}
+            onImageRenamed={(oldName, newName) => {
+              if (!currentDeckId) return
+              const oldUrl = `/api/slides/${currentDeckId}/images/${oldName}`
+              const newUrl = `/api/slides/${currentDeckId}/images/${newName}`
+              replaceUrlInPages(oldUrl, newUrl)
+              persistCurrentDeck()
+              markAllClean()
+              showToast('Image renamed')
+            }}
           />
         )}
         <div
@@ -499,6 +545,15 @@ function App() {
           </div>
         </div>
       </main>
+
+      <CssModal
+        open={slideCssModalOpen}
+        title="Slide CSS (applies to every page in this deck)"
+        hint="Lower priority than Page CSS; higher than defaults. Write selectors as if inside #slide-canvas, e.g. h1 { color: red; }"
+        value={slideCss}
+        onApply={handleApplySlideCss}
+        onClose={() => setSlideCssModalOpen(false)}
+      />
 
       <SaveToast message={toastMessage} />
 
