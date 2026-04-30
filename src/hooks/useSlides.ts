@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import type { PageMeta } from '../utils/page-meta'
+import type { CanvasSize } from '../utils/canvas-size'
 
 export interface SerializedPage {
   meta: Partial<PageMeta>
@@ -16,6 +17,7 @@ export interface SlideDeck {
 export interface SlideDeckFull extends SlideDeck {
   pages: SerializedPage[]
   customCss?: string
+  canvasSize?: CanvasSize
   hasBg?: boolean
 }
 
@@ -46,11 +48,12 @@ export function useSlides() {
       pages: SerializedPage[],
       existingId?: string,
       customCss?: string,
+      canvasSize?: CanvasSize,
     ): Promise<string> => {
       const res = await fetch('/api/slides', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: existingId, title, pages, customCss }),
+        body: JSON.stringify({ id: existingId, title, pages, customCss, canvasSize }),
       })
       const data = await res.json()
       await refresh()

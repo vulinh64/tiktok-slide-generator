@@ -160,8 +160,6 @@
 }
 
 .slide-canvas {
-  width: 960px;
-  height: 1600px;
   background-color: #ffffff;
   color: #1a1a1a;
   overflow-y: auto;

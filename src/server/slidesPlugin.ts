@@ -92,9 +92,15 @@ function isValidImageName(name: string): boolean {
   return IMG_NAME_RE.test(name) && name.length > 0 && name.length <= 100 && !name.includes('..')
 }
 
+interface CanvasSize {
+  width: number
+  height: number
+}
+
 interface DeckInfo {
   name: string
   customCss?: string
+  canvasSize?: CanvasSize
   imgs: ImageEntry[]
   createdAt: string
   updatedAt: string
@@ -351,6 +357,19 @@ export function slidesPlugin(): Plugin {
             } else if (existingInfo?.customCss) {
               info.customCss = existingInfo.customCss
             }
+
+            const incomingCanvas = body.canvasSize
+            if (
+              incomingCanvas &&
+              typeof incomingCanvas.width === 'number' &&
+              typeof incomingCanvas.height === 'number' &&
+              incomingCanvas.width > 0 &&
+              incomingCanvas.height > 0
+            ) {
+              info.canvasSize = { width: incomingCanvas.width, height: incomingCanvas.height }
+            } else if (existingInfo?.canvasSize) {
+              info.canvasSize = existingInfo.canvasSize
+            }
             writeDeckInfo(deckDir, info)
 
             upsertRootIndex({
@@ -380,6 +399,7 @@ export function slidesPlugin(): Plugin {
               id,
               title: info.name,
               customCss: info.customCss ?? '',
+              canvasSize: info.canvasSize,
               imgs: info.imgs || [],
               hasBg: hasBgFile(deckDir),
               createdAt: info.createdAt || parseTimestamp(id),

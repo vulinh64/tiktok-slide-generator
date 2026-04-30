@@ -11,6 +11,8 @@ import { useSlides } from './hooks/useSlides'
 import { usePages } from './hooks/usePages'
 import { DEFAULT_META, FONT_OPTIONS } from './utils/page-meta'
 import type { PageMeta } from './utils/page-meta'
+import { CANVAS_PRESETS, CUSTOM_PRESET_VALUE, DEFAULT_CANVAS_SIZE, matchPreset } from './utils/canvas-size'
+import type { CanvasSize } from './utils/canvas-size'
 import { SaveToast, useSaveToast } from './components/SaveToast'
 import './App.css'
 
@@ -27,6 +29,8 @@ function App() {
   const [slideCss, setSlideCss] = useState('')
   const [slideCssModalOpen, setSlideCssModalOpen] = useState(false)
   const [bgUrl, setBgUrl] = useState<string | null>(null)
+  const [canvasSize, setCanvasSize] = useState<CanvasSize>(DEFAULT_CANVAS_SIZE)
+  const [canvasCustomMode, setCanvasCustomMode] = useState(false)
   const { editor, setDeckId } = useSlideEditor()
   const { decks, loading, refresh, saveDeck, loadDeck, deleteDeck } = useSlides()
   const {
@@ -63,10 +67,12 @@ function App() {
   const currentDeckIdRef = useRef(currentDeckId)
   const currentDeckTitleRef = useRef(currentDeckTitle)
   const slideCssRef = useRef(slideCss)
+  const canvasSizeRef = useRef(canvasSize)
 
   useEffect(() => { currentDeckIdRef.current = currentDeckId; setDeckId(currentDeckId) }, [currentDeckId, setDeckId])
   useEffect(() => { currentDeckTitleRef.current = currentDeckTitle }, [currentDeckTitle])
   useEffect(() => { slideCssRef.current = slideCss }, [slideCss])
+  useEffect(() => { canvasSizeRef.current = canvasSize }, [canvasSize])
 
   // Pack in-memory state into the wire format the server expects
   const buildSerializedPages = useCallback(() => {
@@ -83,6 +89,7 @@ function App() {
       buildSerializedPages(),
       currentDeckIdRef.current,
       slideCssRef.current,
+      canvasSizeRef.current,
     )
   }, [editor, buildSerializedPages, saveDeck])
 
@@ -98,6 +105,7 @@ function App() {
             title: currentDeckTitleRef.current || 'Untitled',
             pages: buildSerializedPages(),
             customCss: slideCssRef.current,
+            canvasSize: canvasSizeRef.current,
           })],
           { type: 'application/json' },
         ),
@@ -116,8 +124,8 @@ function App() {
 
     try {
       const dataUrl = await toPng(canvas, {
-        width: 960,
-        height: 1600,
+        width: canvasSize.width,
+        height: canvasSize.height,
         pixelRatio: 2,
         backgroundColor: dark ? '#1a1a2e' : '#ffffff',
         filter: skipProseMirrorSeparator,
@@ -130,7 +138,7 @@ function App() {
     } catch (err) {
       console.error('Export failed:', err)
     }
-  }, [dark, currentDeckTitle, activePage])
+  }, [dark, currentDeckTitle, activePage, canvasSize])
 
   const handleExportAll = useCallback(async () => {
     if (!editor) return
@@ -184,8 +192,8 @@ function App() {
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
 
         const dataUrl = await toPng(canvas, {
-          width: 960,
-          height: 1600,
+          width: canvasSize.width,
+          height: canvasSize.height,
           pixelRatio: 2,
           backgroundColor: isDark ? '#1a1a2e' : '#ffffff',
           filter: skipProseMirrorSeparator,
@@ -219,7 +227,7 @@ function App() {
       setExportState('idle')
       switchPage(originalPage)
     }
-  }, [editor, activePage, switchPage, getAllPages, getAllMetas, currentDeckTitle])
+  }, [editor, activePage, switchPage, getAllPages, getAllMetas, currentDeckTitle, canvasSize])
 
   // Wrap page switching to auto-persist dirty pages to disk
   const handlePageSwitch = useCallback(
@@ -300,6 +308,9 @@ function App() {
       setCurrentDeckId(deck.id)
       setCurrentDeckTitle(deck.title)
       setSlideCss(deck.customCss ?? '')
+      const loadedSize = deck.canvasSize ?? DEFAULT_CANVAS_SIZE
+      setCanvasSize(loadedSize)
+      setCanvasCustomMode(matchPreset(loadedSize) === CUSTOM_PRESET_VALUE)
       setBgUrl(deck.hasBg ? `/api/slides/${deck.id}/bg?t=${Date.now()}` : null)
       setMode('edit')
       setScreen('editor')
@@ -312,10 +323,18 @@ function App() {
     if (!editor) return
     const defaultHtml = '<h1>New Slide</h1><p>Start writing...</p>'
     loadPages([defaultHtml])
-    const id = await saveDeck('Untitled', [{ html: defaultHtml, meta: {} }])
+    const id = await saveDeck(
+      'Untitled',
+      [{ html: defaultHtml, meta: {} }],
+      undefined,
+      undefined,
+      DEFAULT_CANVAS_SIZE,
+    )
     setCurrentDeckId(id)
     setCurrentDeckTitle('')
     setSlideCss('')
+    setCanvasSize(DEFAULT_CANVAS_SIZE)
+    setCanvasCustomMode(false)
     setBgUrl(null)
     setMode('edit')
     setScreen('editor')
@@ -345,9 +364,27 @@ function App() {
         buildSerializedPages(),
         currentDeckIdRef.current,
         css,
+        canvasSizeRef.current,
       )
       markAllClean()
       showToast('Slide CSS saved')
+    },
+    [editor, buildSerializedPages, saveDeck, markAllClean, showToast],
+  )
+
+  const handleApplyCanvasSize = useCallback(
+    async (size: CanvasSize) => {
+      setCanvasSize(size)
+      if (!editor || !currentDeckIdRef.current) return
+      await saveDeck(
+        currentDeckTitleRef.current || 'Untitled',
+        buildSerializedPages(),
+        currentDeckIdRef.current,
+        slideCssRef.current,
+        size,
+      )
+      markAllClean()
+      showToast('Canvas size saved')
     },
     [editor, buildSerializedPages, saveDeck, markAllClean, showToast],
   )
@@ -358,6 +395,8 @@ function App() {
     setCurrentDeckId(null)
     setCurrentDeckTitle('')
     setSlideCss('')
+    setCanvasSize(DEFAULT_CANVAS_SIZE)
+    setCanvasCustomMode(false)
     setBgUrl(null)
     await refresh()
     setScreen('home')
@@ -456,6 +495,51 @@ function App() {
             <option value={70}>Zoom 70%</option>
             <option value={100}>Zoom 100%</option>
           </select>
+          <select
+            className="font-scale-select"
+            value={canvasCustomMode ? CUSTOM_PRESET_VALUE : matchPreset(canvasSize)}
+            onChange={(e) => {
+              const v = e.target.value
+              if (v === CUSTOM_PRESET_VALUE) {
+                setCanvasCustomMode(true)
+                return
+              }
+              const preset = CANVAS_PRESETS.find((p) => p.value === v)
+              if (preset) {
+                setCanvasCustomMode(false)
+                handleApplyCanvasSize({ width: preset.width, height: preset.height })
+              }
+            }}
+          >
+            {CANVAS_PRESETS.map((p) => (
+              <option key={p.value} value={p.value}>{p.label}</option>
+            ))}
+            <option value={CUSTOM_PRESET_VALUE}>Custom</option>
+          </select>
+          {canvasCustomMode && (
+            <>
+              <input
+                className="font-scale-select"
+                type="number"
+                min={1}
+                style={{ width: '5em' }}
+                value={canvasSize.width}
+                onChange={(e) => setCanvasSize({ ...canvasSize, width: Math.max(1, Number(e.target.value) || 1) })}
+                onBlur={() => handleApplyCanvasSize(canvasSizeRef.current)}
+                title="Canvas width (px)"
+              />
+              <input
+                className="font-scale-select"
+                type="number"
+                min={1}
+                style={{ width: '5em' }}
+                value={canvasSize.height}
+                onChange={(e) => setCanvasSize({ ...canvasSize, height: Math.max(1, Number(e.target.value) || 1) })}
+                onBlur={() => handleApplyCanvasSize(canvasSizeRef.current)}
+                title="Canvas height (px)"
+              />
+            </>
+          )}
           <button className="mode-btn" onClick={handleManualSave}>
             Save
           </button>
@@ -513,8 +597,8 @@ function App() {
         <div
           className="canvas-zoom-container"
           style={{
-            width: `${960 * canvasZoom / 100}px`,
-            height: `${1600 * canvasZoom / 100}px`,
+            width: `${canvasSize.width * canvasZoom / 100}px`,
+            height: `${canvasSize.height * canvasZoom / 100}px`,
           }}
         >
           <div
@@ -527,12 +611,14 @@ function App() {
               id="slide-canvas"
               className={`slide-canvas ${dark ? 'dark' : ''}`}
               style={{
+                width: `${canvasSize.width}px`,
+                height: `${canvasSize.height}px`,
                 fontSize: `${(18 * fontScale) / 100}px`,
                 fontFamily: FONT_OPTIONS.find((f) => f.value === fontFamily)?.css,
                 '--slide-padding-x': `${(48 * marginScale) / 100}px`,
                 ...(bgUrl ? {
                   backgroundImage: `url(${bgUrl})`,
-                  backgroundSize: '960px 1600px',
+                  backgroundSize: `${canvasSize.width}px ${canvasSize.height}px`,
                 } : {}),
               } as React.CSSProperties}
             >
