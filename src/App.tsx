@@ -4,13 +4,21 @@ import { Preview } from './components/Preview'
 import { Toolbar } from './components/Toolbar'
 import { PageList } from './components/PageList'
 import { Home } from './components/Home'
+import { CssModal } from './components/CssModal'
 import { useSlideEditor } from './hooks/useSlideEditor'
 import { useSessionState } from './hooks/useSessionState'
 import { useSlides } from './hooks/useSlides'
 import { usePages } from './hooks/usePages'
-import { htmlToMarkdown, markdownToHtml, parseFrontMatter, FONT_OPTIONS } from './utils/page-meta'
+import { DEFAULT_META, FONT_OPTIONS } from './utils/page-meta'
+import type { PageMeta } from './utils/page-meta'
+import { CANVAS_PRESETS, CUSTOM_PRESET_VALUE, DEFAULT_CANVAS_SIZE, matchPreset } from './utils/canvas-size'
+import type { CanvasSize } from './utils/canvas-size'
 import { SaveToast, useSaveToast } from './components/SaveToast'
 import './App.css'
+
+function skipProseMirrorSeparator(node: Node): boolean {
+  return !(node instanceof HTMLImageElement && node.classList.contains('ProseMirror-separator'))
+}
 
 function App() {
   const [screen, setScreen] = useState<'home' | 'editor'>('home')
@@ -18,7 +26,11 @@ function App() {
   const [canvasZoom, setCanvasZoom] = useSessionState('slide-canvas-zoom', 50)
   const [currentDeckId, setCurrentDeckId] = useState<string | null>(null)
   const [currentDeckTitle, setCurrentDeckTitle] = useState('')
+  const [slideCss, setSlideCss] = useState('')
+  const [slideCssModalOpen, setSlideCssModalOpen] = useState(false)
   const [bgUrl, setBgUrl] = useState<string | null>(null)
+  const [canvasSize, setCanvasSize] = useState<CanvasSize>(DEFAULT_CANVAS_SIZE)
+  const [canvasCustomMode, setCanvasCustomMode] = useState(false)
   const { editor, setDeckId } = useSlideEditor()
   const { decks, loading, refresh, saveDeck, loadDeck, deleteDeck } = useSlides()
   const {
@@ -35,6 +47,7 @@ function App() {
     updatePageMeta,
     isPageDirty,
     markAllClean,
+    replaceUrlInPages,
   } = usePages(editor)
 
   const { message: toastMessage, showToast } = useSaveToast()
@@ -43,46 +56,56 @@ function App() {
   const marginScale = pageMeta.marginScale
   const dark = pageMeta.dark
   const fontFamily = pageMeta.fontFamily
+  const customCss = pageMeta.customCss ?? ''
   const setFontScale = useCallback((v: number) => updatePageMeta({ fontScale: v }), [updatePageMeta])
   const setMarginScale = useCallback((v: number) => updatePageMeta({ marginScale: v }), [updatePageMeta])
   const setDark = useCallback((v: boolean) => updatePageMeta({ dark: v }), [updatePageMeta])
   const setFontFamily = useCallback((v: string) => updatePageMeta({ fontFamily: v }), [updatePageMeta])
+  const setCustomCss = useCallback((v: string) => updatePageMeta({ customCss: v }), [updatePageMeta])
 
   // Refs for the beforeunload handler and persistCurrentDeck
   const currentDeckIdRef = useRef(currentDeckId)
   const currentDeckTitleRef = useRef(currentDeckTitle)
+  const slideCssRef = useRef(slideCss)
+  const canvasSizeRef = useRef(canvasSize)
 
   useEffect(() => { currentDeckIdRef.current = currentDeckId; setDeckId(currentDeckId) }, [currentDeckId, setDeckId])
   useEffect(() => { currentDeckTitleRef.current = currentDeckTitle }, [currentDeckTitle])
+  useEffect(() => { slideCssRef.current = slideCss }, [slideCss])
+  useEffect(() => { canvasSizeRef.current = canvasSize }, [canvasSize])
+
+  // Pack in-memory state into the wire format the server expects
+  const buildSerializedPages = useCallback(() => {
+    const allHtml = getAllPages()
+    const metas = getAllMetas()
+    return allHtml.map((html, i) => ({ html, meta: metas[i] }))
+  }, [getAllPages, getAllMetas])
 
   // Persist current deck to disk (fire-and-forget)
   const persistCurrentDeck = useCallback(async () => {
     if (!editor || !currentDeckIdRef.current) return
-    const allHtml = getAllPages()
-    const metas = getAllMetas()
-    const mdPages = allHtml.map((html, i) => htmlToMarkdown(html, metas[i]))
     await saveDeck(
       currentDeckTitleRef.current || 'Untitled',
-      mdPages,
+      buildSerializedPages(),
       currentDeckIdRef.current,
+      slideCssRef.current,
+      canvasSizeRef.current,
     )
-  }, [editor, getAllPages, getAllMetas, saveDeck])
+  }, [editor, buildSerializedPages, saveDeck])
 
   // Persist on browser close / hard refresh
   useEffect(() => {
     const onBeforeUnload = () => {
       if (!currentDeckIdRef.current) return
-      const allHtml = getAllPages()
-      const metas = getAllMetas()
-      const mdPages = allHtml.map((html, i) => htmlToMarkdown(html, metas[i]))
-      // Use sendBeacon for reliability during unload
       navigator.sendBeacon(
         '/api/slides',
         new Blob(
           [JSON.stringify({
             id: currentDeckIdRef.current,
             title: currentDeckTitleRef.current || 'Untitled',
-            pages: mdPages,
+            pages: buildSerializedPages(),
+            customCss: slideCssRef.current,
+            canvasSize: canvasSizeRef.current,
           })],
           { type: 'application/json' },
         ),
@@ -90,7 +113,7 @@ function App() {
     }
     window.addEventListener('beforeunload', onBeforeUnload)
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
-  }, [getAllPages, getAllMetas])
+  }, [buildSerializedPages])
 
   const [exportState, setExportState] = useState<'idle' | 'exporting' | 'done'>('idle')
 
@@ -101,10 +124,11 @@ function App() {
 
     try {
       const dataUrl = await toPng(canvas, {
-        width: 960,
-        height: 1600,
+        width: canvasSize.width,
+        height: canvasSize.height,
         pixelRatio: 2,
         backgroundColor: dark ? '#1a1a2e' : '#ffffff',
+        filter: skipProseMirrorSeparator,
       })
       const link = document.createElement('a')
       const pageNum = String(activePage).padStart(4, '0')
@@ -114,7 +138,7 @@ function App() {
     } catch (err) {
       console.error('Export failed:', err)
     }
-  }, [dark, currentDeckTitle, activePage])
+  }, [dark, currentDeckTitle, activePage, canvasSize])
 
   const handleExportAll = useCallback(async () => {
     if (!editor) return
@@ -138,6 +162,13 @@ function App() {
         className: canvas.className,
       }
 
+      // Own <style> element mounted at end of <body> so it appears after the
+      // React-managed style tag in source order; doubled selector gives it
+      // higher specificity too, so per-iteration CSS always wins
+      const exportStyle = document.createElement('style')
+      exportStyle.id = 'export-custom-css'
+      document.body.appendChild(exportStyle)
+
       for (let i = 0; i < allPages.length; i++) {
         const meta = allMetas[i]
         const isDark = meta.dark ?? true
@@ -150,6 +181,9 @@ function App() {
         canvas.style.fontSize = `${(18 * fs) / 100}px`
         canvas.style.fontFamily = ff
         canvas.style.setProperty('--slide-padding-x', `${(48 * ms) / 100}px`)
+        exportStyle.textContent = meta.customCss && meta.customCss.trim()
+          ? `#slide-canvas#slide-canvas { ${meta.customCss} }`
+          : ''
 
         // Set the content
         editor.commands.setContent(allPages[i])
@@ -158,10 +192,11 @@ function App() {
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
 
         const dataUrl = await toPng(canvas, {
-          width: 960,
-          height: 1600,
+          width: canvasSize.width,
+          height: canvasSize.height,
           pixelRatio: 2,
           backgroundColor: isDark ? '#1a1a2e' : '#ffffff',
+          filter: skipProseMirrorSeparator,
         })
 
         const base64 = dataUrl.split(',')[1]
@@ -172,6 +207,7 @@ function App() {
       canvas.className = origStyle.className
       canvas.style.fontSize = origStyle.fontSize
       canvas.style.fontFamily = origStyle.fontFamily
+      exportStyle.remove()
 
       // Restore original page
       switchPage(originalPage)
@@ -187,10 +223,11 @@ function App() {
       setExportState('done')
     } catch (err) {
       console.error('Export all failed:', err)
+      document.getElementById('export-custom-css')?.remove()
       setExportState('idle')
       switchPage(originalPage)
     }
-  }, [editor, activePage, switchPage, getAllPages, getAllMetas, currentDeckTitle])
+  }, [editor, activePage, switchPage, getAllPages, getAllMetas, currentDeckTitle, canvasSize])
 
   // Wrap page switching to auto-persist dirty pages to disk
   const handlePageSwitch = useCallback(
@@ -265,12 +302,15 @@ function App() {
     async (id: string) => {
       if (!editor) return
       const deck = await loadDeck(id)
-      const parsed = deck.pages.map((md) => parseFrontMatter(md))
-      const htmlPages = parsed.map((p) => markdownToHtml(p.content))
-      const metas = parsed.map((p) => p.meta)
+      const htmlPages = deck.pages.map((p) => p.html)
+      const metas: PageMeta[] = deck.pages.map((p) => ({ ...DEFAULT_META, ...p.meta }))
       loadPages(htmlPages, metas)
       setCurrentDeckId(deck.id)
       setCurrentDeckTitle(deck.title)
+      setSlideCss(deck.customCss ?? '')
+      const loadedSize = deck.canvasSize ?? DEFAULT_CANVAS_SIZE
+      setCanvasSize(loadedSize)
+      setCanvasCustomMode(matchPreset(loadedSize) === CUSTOM_PRESET_VALUE)
       setBgUrl(deck.hasBg ? `/api/slides/${deck.id}/bg?t=${Date.now()}` : null)
       setMode('edit')
       setScreen('editor')
@@ -283,10 +323,18 @@ function App() {
     if (!editor) return
     const defaultHtml = '<h1>New Slide</h1><p>Start writing...</p>'
     loadPages([defaultHtml])
-    const mdPages = [htmlToMarkdown(defaultHtml)]
-    const id = await saveDeck('Untitled', mdPages)
+    const id = await saveDeck(
+      'Untitled',
+      [{ html: defaultHtml, meta: {} }],
+      undefined,
+      undefined,
+      DEFAULT_CANVAS_SIZE,
+    )
     setCurrentDeckId(id)
     setCurrentDeckTitle('')
+    setSlideCss('')
+    setCanvasSize(DEFAULT_CANVAS_SIZE)
+    setCanvasCustomMode(false)
     setBgUrl(null)
     setMode('edit')
     setScreen('editor')
@@ -306,11 +354,49 @@ function App() {
     showToast('Saved')
   }, [persistCurrentDeck, markAllClean, showToast])
 
+  const handleApplySlideCss = useCallback(
+    async (css: string) => {
+      setSlideCss(css)
+      if (!editor || !currentDeckIdRef.current) return
+      // Save immediately with the new value (don't wait for ref sync)
+      await saveDeck(
+        currentDeckTitleRef.current || 'Untitled',
+        buildSerializedPages(),
+        currentDeckIdRef.current,
+        css,
+        canvasSizeRef.current,
+      )
+      markAllClean()
+      showToast('Slide CSS saved')
+    },
+    [editor, buildSerializedPages, saveDeck, markAllClean, showToast],
+  )
+
+  const handleApplyCanvasSize = useCallback(
+    async (size: CanvasSize) => {
+      setCanvasSize(size)
+      if (!editor || !currentDeckIdRef.current) return
+      await saveDeck(
+        currentDeckTitleRef.current || 'Untitled',
+        buildSerializedPages(),
+        currentDeckIdRef.current,
+        slideCssRef.current,
+        size,
+      )
+      markAllClean()
+      showToast('Canvas size saved')
+    },
+    [editor, buildSerializedPages, saveDeck, markAllClean, showToast],
+  )
+
   // Go back to home from editor
   const handleBackToHome = useCallback(async () => {
     await persistCurrentDeck()
     setCurrentDeckId(null)
     setCurrentDeckTitle('')
+    setSlideCss('')
+    setCanvasSize(DEFAULT_CANVAS_SIZE)
+    setCanvasCustomMode(false)
     setBgUrl(null)
     await refresh()
     setScreen('home')
@@ -351,6 +437,13 @@ function App() {
             onClick={() => setMode('preview')}
           >
             Preview
+          </button>
+          <button
+            className={`mode-btn ${slideCss.trim() ? 'active' : ''}`}
+            onClick={() => setSlideCssModalOpen(true)}
+            title="Slide CSS — applies to every page in this deck"
+          >
+            Slide CSS
           </button>
           <button
             className={`mode-btn dark-toggle ${dark ? 'active' : ''}`}
@@ -402,6 +495,51 @@ function App() {
             <option value={70}>Zoom 70%</option>
             <option value={100}>Zoom 100%</option>
           </select>
+          <select
+            className="font-scale-select"
+            value={canvasCustomMode ? CUSTOM_PRESET_VALUE : matchPreset(canvasSize)}
+            onChange={(e) => {
+              const v = e.target.value
+              if (v === CUSTOM_PRESET_VALUE) {
+                setCanvasCustomMode(true)
+                return
+              }
+              const preset = CANVAS_PRESETS.find((p) => p.value === v)
+              if (preset) {
+                setCanvasCustomMode(false)
+                handleApplyCanvasSize({ width: preset.width, height: preset.height })
+              }
+            }}
+          >
+            {CANVAS_PRESETS.map((p) => (
+              <option key={p.value} value={p.value}>{p.label}</option>
+            ))}
+            <option value={CUSTOM_PRESET_VALUE}>Custom</option>
+          </select>
+          {canvasCustomMode && (
+            <>
+              <input
+                className="font-scale-select"
+                type="number"
+                min={1}
+                style={{ width: '5em' }}
+                value={canvasSize.width}
+                onChange={(e) => setCanvasSize({ ...canvasSize, width: Math.max(1, Number(e.target.value) || 1) })}
+                onBlur={() => handleApplyCanvasSize(canvasSizeRef.current)}
+                title="Canvas width (px)"
+              />
+              <input
+                className="font-scale-select"
+                type="number"
+                min={1}
+                style={{ width: '5em' }}
+                value={canvasSize.height}
+                onChange={(e) => setCanvasSize({ ...canvasSize, height: Math.max(1, Number(e.target.value) || 1) })}
+                onBlur={() => handleApplyCanvasSize(canvasSizeRef.current)}
+                title="Canvas height (px)"
+              />
+            </>
+          )}
           <button className="mode-btn" onClick={handleManualSave}>
             Save
           </button>
@@ -432,13 +570,35 @@ function App() {
           onDeletePage={handleDeletePage}
         />
       </div>
+      {slideCss.trim() && (
+        <style>{`#slide-canvas { ${slideCss} }`}</style>
+      )}
+      {customCss.trim() && exportState !== 'exporting' && (
+        <style id="page-custom-css">{`#slide-canvas#slide-canvas { ${customCss} }`}</style>
+      )}
       <main className="app-main">
-        {mode === 'edit' && editor && <Toolbar editor={editor} deckId={currentDeckId} />}
+        {mode === 'edit' && editor && (
+          <Toolbar
+            editor={editor}
+            deckId={currentDeckId}
+            customCss={customCss}
+            onChangeCustomCss={setCustomCss}
+            onImageRenamed={(oldName, newName) => {
+              if (!currentDeckId) return
+              const oldUrl = `/api/slides/${currentDeckId}/images/${oldName}`
+              const newUrl = `/api/slides/${currentDeckId}/images/${newName}`
+              replaceUrlInPages(oldUrl, newUrl)
+              persistCurrentDeck()
+              markAllClean()
+              showToast('Image renamed')
+            }}
+          />
+        )}
         <div
           className="canvas-zoom-container"
           style={{
-            width: `${960 * canvasZoom / 100}px`,
-            height: `${1600 * canvasZoom / 100}px`,
+            width: `${canvasSize.width * canvasZoom / 100}px`,
+            height: `${canvasSize.height * canvasZoom / 100}px`,
           }}
         >
           <div
@@ -451,12 +611,14 @@ function App() {
               id="slide-canvas"
               className={`slide-canvas ${dark ? 'dark' : ''}`}
               style={{
+                width: `${canvasSize.width}px`,
+                height: `${canvasSize.height}px`,
                 fontSize: `${(18 * fontScale) / 100}px`,
                 fontFamily: FONT_OPTIONS.find((f) => f.value === fontFamily)?.css,
                 '--slide-padding-x': `${(48 * marginScale) / 100}px`,
                 ...(bgUrl ? {
                   backgroundImage: `url(${bgUrl})`,
-                  backgroundSize: '960px 1600px',
+                  backgroundSize: `${canvasSize.width}px ${canvasSize.height}px`,
                 } : {}),
               } as React.CSSProperties}
             >
@@ -469,6 +631,15 @@ function App() {
           </div>
         </div>
       </main>
+
+      <CssModal
+        open={slideCssModalOpen}
+        title="Slide CSS (applies to every page in this deck)"
+        hint="Lower priority than Page CSS; higher than defaults. Write selectors as if inside #slide-canvas, e.g. h1 { color: red; }"
+        value={slideCss}
+        onApply={handleApplySlideCss}
+        onClose={() => setSlideCssModalOpen(false)}
+      />
 
       <SaveToast message={toastMessage} />
 

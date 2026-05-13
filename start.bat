@@ -12,7 +12,7 @@ if %ERRORLEVEL%==0 (
     echo Docker is already running.
 ) else (
     echo Docker is not running. Starting Docker Desktop...
-    start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+    docker desktop start
 
     set attempts=0
 
@@ -33,5 +33,7 @@ if %ERRORLEVEL%==0 (
     echo Docker is ready.
 )
 
+docker compose down
+docker image rm tiktok-slider-app
 docker compose up --build
 docker compose up --detach

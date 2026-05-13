@@ -1,7 +1,7 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
-import type { Editor as TiptapEditor } from '@tiptap/react'
-import { DEFAULT_META } from '../utils/page-meta'
-import type { PageMeta } from '../utils/page-meta'
+import {useCallback, useEffect, useRef, useState} from 'react'
+import type {Editor as TiptapEditor} from '@tiptap/react'
+import type {PageMeta} from '../utils/page-meta'
+import {DEFAULT_META} from '../utils/page-meta'
 
 const DEFAULT_PAGE = '<h1>New Page</h1><p>Start writing...</p>'
 
@@ -26,8 +26,7 @@ export function usePages(editor: TiptapEditor | null) {
     const onUpdate = () => {
       if (suppressSave.current) return
       const idx = activePageRef.current
-      const html = editor.getHTML()
-      pagesRef.current[idx] = html
+      pagesRef.current[idx] = editor.getHTML()
       dirtyRef.current[idx] = true
       setPages([...pagesRef.current])
     }
@@ -156,6 +155,30 @@ export function usePages(editor: TiptapEditor | null) {
     dirtyRef.current = dirtyRef.current.map(() => false)
   }, [])
 
+  // Replace occurrences of `oldUrl` with `newUrl` across every page in memory,
+  // including the currently-active editor content. Marks touched pages dirty.
+  const replaceUrlInPages = useCallback(
+    (oldUrl: string, newUrl: string) => {
+      if (!oldUrl || oldUrl === newUrl) return
+      pagesRef.current = pagesRef.current.map((html, idx) => {
+        if (!html.includes(oldUrl)) return html
+        dirtyRef.current[idx] = true
+        return html.split(oldUrl).join(newUrl)
+      })
+      if (editor) {
+        const activeIdx = activePageRef.current
+        const activeHtml = pagesRef.current[activeIdx]
+        if (activeHtml && editor.getHTML().includes(oldUrl)) {
+          suppressSave.current = true
+          editor.commands.setContent(activeHtml)
+          suppressSave.current = false
+        }
+      }
+      setPages([...pagesRef.current])
+    },
+    [editor],
+  )
+
   return {
     pages,
     activePage,
@@ -171,5 +194,6 @@ export function usePages(editor: TiptapEditor | null) {
     isPageDirty,
     hasDirtyPages,
     markAllClean,
+    replaceUrlInPages,
   }
 }

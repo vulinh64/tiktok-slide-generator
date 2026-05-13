@@ -43,8 +43,6 @@ export function Home({ decks, loading, onOpen, onCreate, onDelete }: HomeProps) 
               <div className="home-deck-card-body">
                 <h3 className="home-deck-title">{deck.title || 'Untitled'}</h3>
                 <div className="home-deck-meta">
-                  <span>{deck.pageCount} page{deck.pageCount !== 1 ? 's' : ''}</span>
-                  <span className="home-deck-dot">&middot;</span>
                   <span>{deck.updatedAt || deck.createdAt || deck.id}</span>
                 </div>
               </div>

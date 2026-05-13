@@ -1,10 +1,15 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import type { Editor as TiptapEditor } from '@tiptap/react'
+import { ImageManager } from './ImageManager'
+import { CssModal } from './CssModal'
 import './Toolbar.css'
 
 interface ToolbarProps {
   editor: TiptapEditor
   deckId?: string | null
+  customCss?: string
+  onChangeCustomCss?: (css: string) => void
+  onImageRenamed?: (oldName: string, newName: string) => void
 }
 
 async function uploadImage(deckId: string, file: File): Promise<string | null> {
@@ -19,8 +24,10 @@ async function uploadImage(deckId: string, file: File): Promise<string | null> {
   return data.url as string
 }
 
-export function Toolbar({ editor, deckId }: ToolbarProps) {
+export function Toolbar({ editor, deckId, customCss = '', onChangeCustomCss, onImageRenamed }: ToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [cssModalOpen, setCssModalOpen] = useState(false)
+  const [imgManagerOpen, setImgManagerOpen] = useState(false)
 
   const addImage = useCallback(() => {
     if (!deckId) {
@@ -224,6 +231,14 @@ export function Toolbar({ editor, deckId }: ToolbarProps) {
         <button className="toolbar-btn" onClick={addImage} title="Insert Image">
           Image
         </button>
+        <button
+          className="toolbar-btn"
+          onClick={() => setImgManagerOpen(true)}
+          disabled={!deckId}
+          title="Manage images"
+        >
+          Images
+        </button>
         <input
           ref={fileInputRef}
           type="file"
@@ -237,6 +252,13 @@ export function Toolbar({ editor, deckId }: ToolbarProps) {
           title="Horizontal Rule"
         >
           &mdash; HR
+        </button>
+        <button
+          className={`toolbar-btn ${customCss.trim() ? 'active' : ''}`}
+          onClick={() => setCssModalOpen(true)}
+          title="Custom CSS for this page"
+        >
+          CSS
         </button>
       </div>
 
@@ -261,6 +283,23 @@ export function Toolbar({ editor, deckId }: ToolbarProps) {
           Redo
         </button>
       </div>
+
+      <ImageManager
+        editor={editor}
+        deckId={deckId ?? null}
+        open={imgManagerOpen}
+        onClose={() => setImgManagerOpen(false)}
+        onImageRenamed={onImageRenamed}
+      />
+
+      <CssModal
+        open={cssModalOpen}
+        title="Page CSS (this page only)"
+        hint="Highest priority — overrides Slide CSS and defaults. Write selectors as if inside #slide-canvas, e.g. h1 { color: red; }"
+        value={customCss}
+        onApply={(css) => onChangeCustomCss?.(css)}
+        onClose={() => setCssModalOpen(false)}
+      />
     </div>
   )
 }
