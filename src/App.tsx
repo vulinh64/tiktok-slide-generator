@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { Editor } from './components/Editor'
-import { Preview } from './components/Preview'
 import { Toolbar } from './components/Toolbar'
 import { PageList } from './components/PageList'
 import { Home } from './components/Home'
@@ -22,7 +21,6 @@ function skipProseMirrorSeparator(node: Node): boolean {
 
 function App() {
   const [screen, setScreen] = useState<'home' | 'editor'>('home')
-  const [mode, setMode] = useState<'edit' | 'preview'>('edit')
   const [canvasZoom, setCanvasZoom] = useSessionState('slide-canvas-zoom', 50)
   const [currentDeckId, setCurrentDeckId] = useState<string | null>(null)
   const [currentDeckTitle, setCurrentDeckTitle] = useState('')
@@ -144,7 +142,7 @@ function App() {
     if (!editor) return
     setExportState('exporting')
 
-    const originalPage = activePage
+    const originalHtml = editor.getHTML()
 
     try {
       const { toPng } = await import('html-to-image')
@@ -209,8 +207,10 @@ function App() {
       canvas.style.fontFamily = origStyle.fontFamily
       exportStyle.remove()
 
-      // Restore original page
-      switchPage(originalPage)
+      // Restore editor content directly: switchPage would no-op because
+      // activePage was never changed during the loop, even though the
+      // editor's displayed content was swapped on every iteration.
+      editor.commands.setContent(originalHtml)
 
       const blob = await zip.generateAsync({ type: 'blob' })
       const url = URL.createObjectURL(blob)
@@ -225,9 +225,9 @@ function App() {
       console.error('Export all failed:', err)
       document.getElementById('export-custom-css')?.remove()
       setExportState('idle')
-      switchPage(originalPage)
+      editor.commands.setContent(originalHtml)
     }
-  }, [editor, activePage, switchPage, getAllPages, getAllMetas, currentDeckTitle, canvasSize])
+  }, [editor, getAllPages, getAllMetas, currentDeckTitle, canvasSize])
 
   // Wrap page switching to auto-persist dirty pages to disk
   const handlePageSwitch = useCallback(
@@ -312,7 +312,6 @@ function App() {
       setCanvasSize(loadedSize)
       setCanvasCustomMode(matchPreset(loadedSize) === CUSTOM_PRESET_VALUE)
       setBgUrl(deck.hasBg ? `/api/slides/${deck.id}/bg?t=${Date.now()}` : null)
-      setMode('edit')
       setScreen('editor')
     },
     [editor, loadDeck, loadPages],
@@ -336,7 +335,6 @@ function App() {
     setCanvasSize(DEFAULT_CANVAS_SIZE)
     setCanvasCustomMode(false)
     setBgUrl(null)
-    setMode('edit')
     setScreen('editor')
   }, [editor, loadPages, saveDeck])
 
@@ -426,18 +424,6 @@ function App() {
           </h1>
         </div>
         <div className="app-actions">
-          <button
-            className={`mode-btn ${mode === 'edit' ? 'active' : ''}`}
-            onClick={() => setMode('edit')}
-          >
-            Edit
-          </button>
-          <button
-            className={`mode-btn ${mode === 'preview' ? 'active' : ''}`}
-            onClick={() => setMode('preview')}
-          >
-            Preview
-          </button>
           <button
             className={`mode-btn ${slideCss.trim() ? 'active' : ''}`}
             onClick={() => setSlideCssModalOpen(true)}
@@ -577,7 +563,7 @@ function App() {
         <style id="page-custom-css">{`#slide-canvas#slide-canvas { ${customCss} }`}</style>
       )}
       <main className="app-main">
-        {mode === 'edit' && editor && (
+        {editor && (
           <Toolbar
             editor={editor}
             deckId={currentDeckId}
@@ -622,11 +608,7 @@ function App() {
                 } : {}),
               } as React.CSSProperties}
             >
-              {mode === 'edit' ? (
-                <Editor editor={editor} />
-              ) : (
-                <Preview editor={editor} />
-              )}
+              <Editor editor={editor} />
             </div>
           </div>
         </div>
