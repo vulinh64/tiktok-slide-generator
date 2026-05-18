@@ -14,10 +14,13 @@ export interface SlideDeck {
   updatedAt: string
 }
 
+export type CodeFont = 'jetbrains' | 'consolas'
+
 export interface SlideDeckFull extends SlideDeck {
   pages: SerializedPage[]
   customCss?: string
   canvasSize?: CanvasSize
+  codeFont?: CodeFont
   hasBg?: boolean
 }
 
@@ -49,11 +52,12 @@ export function useSlides() {
       existingId?: string,
       customCss?: string,
       canvasSize?: CanvasSize,
+      codeFont?: CodeFont,
     ): Promise<string> => {
       const res = await fetch('/api/slides', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: existingId, title, pages, customCss, canvasSize }),
+        body: JSON.stringify({ id: existingId, title, pages, customCss, canvasSize, codeFont }),
       })
       const data = await res.json()
       await refresh()

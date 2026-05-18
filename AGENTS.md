@@ -9,7 +9,7 @@ Orientation guide for AI agents working in this repo. Read this first, then dril
 - **Editor:** Tiptap (ProseMirror) rich-text editor with custom node views (image, code block) and a Shiki-powered syntax-highlighting plugin.
 - **Pages:** A deck is an ordered list of pages. Each page has its own HTML content plus metadata (font, font scale, margin scale, dark mode, custom CSS).
 - **Canvas:** Pages render into a fixed-size `#slide-canvas` element with configurable dimensions (preset or custom) and optional background image.
-- **Export:** Single page → PNG via `html-to-image`. Whole deck → ZIP of PNGs via `html-to-image` + `jszip`. UI-only nodes (the code-block language `<select>`, ProseMirror separator image) are filtered out at export time.
+- **Export:** Single page → PNG via `html-to-image`. Whole deck → ZIP of PNGs via `html-to-image` + `jszip`. Whole deck → raw `.zip` of the on-disk deck dir (metadata + images + bg) via `GET /api/slides/:id/export`, importable back through `POST /api/slides/import`. UI-only nodes (the code-block language `<select>`, ProseMirror separator image) are filtered out of PNGs at export time.
 - **Persistence:** A dev-time Vite middleware plugin (`src/server/slidesPlugin.ts`) exposes `/api/slides` REST endpoints that store decks, page images, and backgrounds under `~/.notes/<deckId>/`.
 
 ## Stack

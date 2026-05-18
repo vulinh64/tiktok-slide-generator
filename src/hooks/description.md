@@ -12,12 +12,12 @@ Custom React hooks that own the app's runtime state: the Tiptap editor instance,
 ### useSlideEditor.ts
 - **Purpose:** Creates and configures the single shared Tiptap `Editor` instance used to edit the active slide page.
 - **Returns:** `{ editor, setDeckId }` — the Tiptap editor and a setter for the current deck id (needed for image uploads).
-- **Notes:** Loads Shiki at module load time and injects the highlighter into the code-block plugin once ready. Registers a custom ProseMirror plugin that intercepts image drop/paste and POSTs to `/api/slides/:deckId/images`. Extends the `Image` node with a `width` attribute and renders it via `ImageView`; code blocks render via `CodeBlockView`. Consumed only by `App.tsx`, which passes `editor` down to `usePages`, the toolbar, and `EditorContent`.
+- **Notes:** Loads Shiki at module load time and injects the highlighter into the code-block plugin once ready. Registers a custom ProseMirror plugin that intercepts image drop/paste and POSTs to `/api/slides/:deckId/images`. Extends the `Image` node with a `width` attribute and renders it via `ImageView`; code blocks render via `CodeBlockView`. StarterKit's History extension is left at its default config, so Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z drive undo/redo for every doc change (text, marks, headings, alignment, lists, image insert/delete). Undoing an image insert only removes the node from the page — the uploaded file stays on the server and can be re-inserted from the Images modal. Consumed only by `App.tsx`, which passes `editor` down to `usePages`, the toolbar, and `EditorContent`.
 
 ### useSlides.ts
 - **Purpose:** Client for the `/api/slides` REST endpoints — lists, saves, loads, and deletes slide decks.
 - **Returns:** `{ decks, loading, refresh, saveDeck, loadDeck, deleteDeck }`.
-- **Notes:** Auto-calls `refresh()` on mount. `saveDeck` takes title, pages, optional existing id, optional `customCss`, and optional `canvasSize`; returns the saved deck id and refreshes the list. Also exports the `SerializedPage`, `SlideDeck`, and `SlideDeckFull` types — `SlideDeck` is re-imported as a type by `Home.tsx` and `SlideManager.tsx`. Consumed by `App.tsx`.
+- **Notes:** Auto-calls `refresh()` on mount. `saveDeck` takes title, pages, optional existing id, optional `customCss`, optional `canvasSize`, and optional `codeFont` (`'jetbrains' | 'consolas'`); returns the saved deck id and refreshes the list. Also exports `SerializedPage`, `SlideDeck`, `SlideDeckFull`, and `CodeFont` types — `SlideDeck` is re-imported as a type by `Home.tsx` and `SlideManager.tsx`; `CodeFont` is consumed by `App.tsx`. Consumed by `App.tsx`.
 
 ### usePages.ts
 - **Purpose:** Owns the in-memory array of slide pages (HTML strings + per-page `PageMeta`) and syncs it with the Tiptap editor.

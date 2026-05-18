@@ -7,14 +7,26 @@ interface HomeProps {
   onOpen: (id: string) => void
   onCreate: () => void
   onDelete: (id: string) => void
+  onImport: (file: File) => void
 }
 
-export function Home({ decks, loading, onOpen, onCreate, onDelete }: HomeProps) {
+export function Home({ decks, loading, onOpen, onCreate, onDelete, onImport }: HomeProps) {
   const handleDelete = (e: React.MouseEvent, id: string, title: string) => {
     e.stopPropagation()
     if (window.confirm(`Delete "${title}"?`)) {
       onDelete(id)
     }
+  }
+
+  const handleImportClick = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.zip,application/zip'
+    input.onchange = () => {
+      const file = input.files?.[0]
+      if (file) onImport(file)
+    }
+    input.click()
   }
 
   return (
@@ -25,9 +37,14 @@ export function Home({ decks, loading, onOpen, onCreate, onDelete }: HomeProps) 
           <p className="home-subtitle">Create and edit slideshows</p>
         </header>
 
-        <button className="home-create-btn" onClick={onCreate}>
-          + New Slideshow
-        </button>
+        <div className="home-actions">
+          <button className="home-create-btn" onClick={onCreate}>
+            + New Slideshow
+          </button>
+          <button className="home-import-btn" onClick={handleImportClick}>
+            Import .zip
+          </button>
+        </div>
 
         <div className="home-deck-list">
           {loading && <p className="home-empty">Loading...</p>}

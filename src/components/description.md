@@ -20,9 +20,9 @@ UI building blocks for the slide editor: the home/dashboard screen, the Tiptap e
 - **Notes:** Refuses to delete the last remaining page; confirms via `window.confirm`.
 
 ### Home.tsx (+ Home.css)
-- **Purpose:** landing screen listing existing decks with "New Slideshow" and per-card delete.
+- **Purpose:** landing screen listing existing decks with "New Slideshow", "Import .zip", and per-card delete.
 - **Exports:** `Home`
-- **Notes:** Consumes `SlideDeck` from `src/hooks/useSlides`.
+- **Notes:** Consumes `SlideDeck` from `src/hooks/useSlides`. The Import button opens a file picker (`.zip`) and hands the chosen `File` to `onImport`, which the parent POSTs to `/api/slides/import`.
 
 ### CssModal.tsx (+ CssModal.css)
 - **Purpose:** modal textarea editor for custom CSS (used for both per-page and per-deck CSS).

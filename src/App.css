@@ -4,16 +4,35 @@
   flex-direction: column;
 }
 
+.app {
+  --header-height: 6.25em;
+}
+
 .app-header {
   position: sticky;
   top: 0;
   z-index: 30;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75em 1.5em;
+  flex-direction: column;
+  gap: 0.5em;
+  padding: 0.5em 1.5em;
   background: #16213e;
   border-bottom: 0.0625em solid #0f3460;
+}
+
+.app-header-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.app-header-row-primary {
+  justify-content: space-between;
+}
+
+.app-header-row-settings {
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .app-header-left {
@@ -137,10 +156,10 @@
 
 .page-list-float {
   position: fixed;
-  top: 3.3125em;
+  top: var(--header-height);
   left: 0;
   z-index: 20;
-  max-height: calc(100vh - 3.3125em);
+  max-height: calc(100vh - var(--header-height));
   overflow: hidden;
 }
 

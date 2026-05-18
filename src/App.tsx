@@ -7,6 +7,7 @@ import { CssModal } from './components/CssModal'
 import { useSlideEditor } from './hooks/useSlideEditor'
 import { useSessionState } from './hooks/useSessionState'
 import { useSlides } from './hooks/useSlides'
+import type { CodeFont } from './hooks/useSlides'
 import { usePages } from './hooks/usePages'
 import { DEFAULT_META, FONT_OPTIONS } from './utils/page-meta'
 import type { PageMeta } from './utils/page-meta'
@@ -17,8 +18,8 @@ import './App.css'
 
 function skipNonExportedNodes(node: Node): boolean {
   if (node instanceof HTMLImageElement && node.classList.contains('ProseMirror-separator')) return false
-  if (node instanceof HTMLElement && node.classList.contains('code-block-lang-select')) return false
-  return true
+  return !(node instanceof HTMLElement && node.classList.contains('code-block-lang-select'));
+
 }
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
   const [bgUrl, setBgUrl] = useState<string | null>(null)
   const [canvasSize, setCanvasSize] = useState<CanvasSize>(DEFAULT_CANVAS_SIZE)
   const [canvasCustomMode, setCanvasCustomMode] = useState(false)
+  const [codeFont, setCodeFont] = useState<CodeFont>('jetbrains')
   const { editor, setDeckId } = useSlideEditor()
   const { decks, loading, refresh, saveDeck, loadDeck, deleteDeck } = useSlides()
   const {
@@ -68,11 +70,13 @@ function App() {
   const currentDeckTitleRef = useRef(currentDeckTitle)
   const slideCssRef = useRef(slideCss)
   const canvasSizeRef = useRef(canvasSize)
+  const codeFontRef = useRef(codeFont)
 
   useEffect(() => { currentDeckIdRef.current = currentDeckId; setDeckId(currentDeckId) }, [currentDeckId, setDeckId])
   useEffect(() => { currentDeckTitleRef.current = currentDeckTitle }, [currentDeckTitle])
   useEffect(() => { slideCssRef.current = slideCss }, [slideCss])
   useEffect(() => { canvasSizeRef.current = canvasSize }, [canvasSize])
+  useEffect(() => { codeFontRef.current = codeFont }, [codeFont])
 
   // Pack in-memory state into the wire format the server expects
   const buildSerializedPages = useCallback(() => {
@@ -90,6 +94,7 @@ function App() {
       currentDeckIdRef.current,
       slideCssRef.current,
       canvasSizeRef.current,
+      codeFontRef.current,
     )
   }, [editor, buildSerializedPages, saveDeck])
 
@@ -106,6 +111,7 @@ function App() {
             pages: buildSerializedPages(),
             customCss: slideCssRef.current,
             canvasSize: canvasSizeRef.current,
+            codeFont: codeFontRef.current,
           })],
           { type: 'application/json' },
         ),
@@ -231,6 +237,16 @@ function App() {
     }
   }, [editor, getAllPages, getAllMetas, currentDeckTitle, canvasSize])
 
+  // Flush state to disk, then trigger a download of the whole deck dir as a zip
+  const handleExportRaw = useCallback(async () => {
+    if (!currentDeckId) return
+    await persistCurrentDeck()
+    markAllClean()
+    const a = document.createElement('a')
+    a.href = `/api/slides/${currentDeckId}/export`
+    a.click()
+  }, [currentDeckId, persistCurrentDeck, markAllClean])
+
   // Wrap page switching to auto-persist dirty pages to disk
   const handlePageSwitch = useCallback(
     (index: number) => {
@@ -314,6 +330,7 @@ function App() {
       setCanvasSize(loadedSize)
       setCanvasCustomMode(matchPreset(loadedSize) === CUSTOM_PRESET_VALUE)
       setBgUrl(deck.hasBg ? `/api/slides/${deck.id}/bg?t=${Date.now()}` : null)
+      setCodeFont(deck.codeFont ?? 'jetbrains')
       setScreen('editor')
     },
     [editor, loadDeck, loadPages],
@@ -337,6 +354,7 @@ function App() {
     setCanvasSize(DEFAULT_CANVAS_SIZE)
     setCanvasCustomMode(false)
     setBgUrl(null)
+    setCodeFont('jetbrains')
     setScreen('editor')
   }, [editor, loadPages, saveDeck])
 
@@ -346,6 +364,29 @@ function App() {
       await deleteDeck(id)
     },
     [deleteDeck],
+  )
+
+  // Home screen: import a deck zip and open it
+  const handleHomeImport = useCallback(
+    async (file: File) => {
+      try {
+        const res = await fetch('/api/slides/import', {
+          method: 'POST',
+          body: file,
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          window.alert(`Import failed: ${err.error || res.statusText}`)
+          return
+        }
+        const data = await res.json() as { id: string }
+        await refresh()
+        await handleHomeOpen(data.id)
+      } catch (e) {
+        window.alert(`Import failed: ${String(e)}`)
+      }
+    },
+    [refresh, handleHomeOpen],
   )
 
   const handleManualSave = useCallback(() => {
@@ -365,6 +406,7 @@ function App() {
         currentDeckIdRef.current,
         css,
         canvasSizeRef.current,
+        codeFontRef.current,
       )
       markAllClean()
       showToast('Slide CSS saved')
@@ -382,9 +424,28 @@ function App() {
         currentDeckIdRef.current,
         slideCssRef.current,
         size,
+        codeFontRef.current,
       )
       markAllClean()
       showToast('Canvas size saved')
+    },
+    [editor, buildSerializedPages, saveDeck, markAllClean, showToast],
+  )
+
+  const handleApplyCodeFont = useCallback(
+    async (font: CodeFont) => {
+      setCodeFont(font)
+      if (!editor || !currentDeckIdRef.current) return
+      await saveDeck(
+        currentDeckTitleRef.current || 'Untitled',
+        buildSerializedPages(),
+        currentDeckIdRef.current,
+        slideCssRef.current,
+        canvasSizeRef.current,
+        font,
+      )
+      markAllClean()
+      showToast('Code font saved')
     },
     [editor, buildSerializedPages, saveDeck, markAllClean, showToast],
   )
@@ -398,6 +459,7 @@ function App() {
     setCanvasSize(DEFAULT_CANVAS_SIZE)
     setCanvasCustomMode(false)
     setBgUrl(null)
+    setCodeFont('jetbrains')
     await refresh()
     setScreen('home')
   }, [persistCurrentDeck, refresh])
@@ -410,6 +472,7 @@ function App() {
         onOpen={handleHomeOpen}
         onCreate={handleHomeCreate}
         onDelete={handleHomeDelete}
+        onImport={handleHomeImport}
       />
     )
   }
@@ -417,15 +480,39 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <div className="app-header-left">
-          <button className="back-btn" onClick={handleBackToHome} title="Back to home">
-            &larr;
-          </button>
-          <h1 className="app-title" onClick={handleRename} title="Click to rename">
-            {currentDeckTitle || 'Untitled'}
-          </h1>
+        <div className="app-header-row app-header-row-primary">
+          <div className="app-header-left">
+            <button className="back-btn" onClick={handleBackToHome} title="Back to home">
+              &larr;
+            </button>
+            <h1 className="app-title" onClick={handleRename} title="Click to rename">
+              {currentDeckTitle || 'Untitled'}
+            </h1>
+          </div>
+          <div className="app-actions">
+            <button className="mode-btn" onClick={handleManualSave}>
+              Save
+            </button>
+            <button className="export-btn" onClick={handleExport}>
+              Export PNG
+            </button>
+            <button className="export-btn" onClick={handleExportAll}>
+              Export All
+            </button>
+            <button className="export-btn" onClick={handleExportRaw}>
+              Export Raw
+            </button>
+            <button className="mode-btn" onClick={handleBgUpload}>
+              BG Image
+            </button>
+            {bgUrl && (
+              <button className="mode-btn" onClick={handleBgRemove}>
+                Remove BG
+              </button>
+            )}
+          </div>
         </div>
-        <div className="app-actions">
+        <div className="app-header-row app-header-row-settings">
           <button
             className={`mode-btn ${slideCss.trim() ? 'active' : ''}`}
             onClick={() => setSlideCssModalOpen(true)}
@@ -433,6 +520,60 @@ function App() {
           >
             Slide CSS
           </button>
+          <select
+            className="font-scale-select"
+            value={codeFont}
+            onChange={(e) => handleApplyCodeFont(e.target.value as CodeFont)}
+            title="Code block font — applies to every page in this deck"
+          >
+            <option value="jetbrains">Code: JetBrains Mono</option>
+            <option value="consolas">Code: Consolas</option>
+          </select>
+          <select
+            className="font-scale-select"
+            value={canvasCustomMode ? CUSTOM_PRESET_VALUE : matchPreset(canvasSize)}
+            onChange={(e) => {
+              const v = e.target.value
+              if (v === CUSTOM_PRESET_VALUE) {
+                setCanvasCustomMode(true)
+                return
+              }
+              const preset = CANVAS_PRESETS.find((p) => p.value === v)
+              if (preset) {
+                setCanvasCustomMode(false)
+                handleApplyCanvasSize({ width: preset.width, height: preset.height })
+              }
+            }}
+          >
+            {CANVAS_PRESETS.map((p) => (
+              <option key={p.value} value={p.value}>{p.label}</option>
+            ))}
+            <option value={CUSTOM_PRESET_VALUE}>Custom</option>
+          </select>
+          {canvasCustomMode && (
+            <>
+              <input
+                className="font-scale-select"
+                type="number"
+                min={1}
+                style={{ width: '5em' }}
+                value={canvasSize.width}
+                onChange={(e) => setCanvasSize({ ...canvasSize, width: Math.max(1, Number(e.target.value) || 1) })}
+                onBlur={() => handleApplyCanvasSize(canvasSizeRef.current)}
+                title="Canvas width (px)"
+              />
+              <input
+                className="font-scale-select"
+                type="number"
+                min={1}
+                style={{ width: '5em' }}
+                value={canvasSize.height}
+                onChange={(e) => setCanvasSize({ ...canvasSize, height: Math.max(1, Number(e.target.value) || 1) })}
+                onBlur={() => handleApplyCanvasSize(canvasSizeRef.current)}
+                title="Canvas height (px)"
+              />
+            </>
+          )}
           <button
             className={`mode-btn dark-toggle ${dark ? 'active' : ''}`}
             onClick={() => setDark(!dark)}
@@ -483,68 +624,6 @@ function App() {
             <option value={70}>Zoom 70%</option>
             <option value={100}>Zoom 100%</option>
           </select>
-          <select
-            className="font-scale-select"
-            value={canvasCustomMode ? CUSTOM_PRESET_VALUE : matchPreset(canvasSize)}
-            onChange={(e) => {
-              const v = e.target.value
-              if (v === CUSTOM_PRESET_VALUE) {
-                setCanvasCustomMode(true)
-                return
-              }
-              const preset = CANVAS_PRESETS.find((p) => p.value === v)
-              if (preset) {
-                setCanvasCustomMode(false)
-                handleApplyCanvasSize({ width: preset.width, height: preset.height })
-              }
-            }}
-          >
-            {CANVAS_PRESETS.map((p) => (
-              <option key={p.value} value={p.value}>{p.label}</option>
-            ))}
-            <option value={CUSTOM_PRESET_VALUE}>Custom</option>
-          </select>
-          {canvasCustomMode && (
-            <>
-              <input
-                className="font-scale-select"
-                type="number"
-                min={1}
-                style={{ width: '5em' }}
-                value={canvasSize.width}
-                onChange={(e) => setCanvasSize({ ...canvasSize, width: Math.max(1, Number(e.target.value) || 1) })}
-                onBlur={() => handleApplyCanvasSize(canvasSizeRef.current)}
-                title="Canvas width (px)"
-              />
-              <input
-                className="font-scale-select"
-                type="number"
-                min={1}
-                style={{ width: '5em' }}
-                value={canvasSize.height}
-                onChange={(e) => setCanvasSize({ ...canvasSize, height: Math.max(1, Number(e.target.value) || 1) })}
-                onBlur={() => handleApplyCanvasSize(canvasSizeRef.current)}
-                title="Canvas height (px)"
-              />
-            </>
-          )}
-          <button className="mode-btn" onClick={handleManualSave}>
-            Save
-          </button>
-          <button className="export-btn" onClick={handleExport}>
-            Export PNG
-          </button>
-          <button className="export-btn" onClick={handleExportAll}>
-            Export All
-          </button>
-          <button className="mode-btn" onClick={handleBgUpload}>
-            BG Image
-          </button>
-          {bgUrl && (
-            <button className="mode-btn" onClick={handleBgRemove}>
-              Remove BG
-            </button>
-          )}
         </div>
       </header>
 
@@ -604,6 +683,9 @@ function App() {
                 fontSize: `${(18 * fontScale) / 100}px`,
                 fontFamily: FONT_OPTIONS.find((f) => f.value === fontFamily)?.css,
                 '--slide-padding-x': `${(48 * marginScale) / 100}px`,
+                ...(codeFont === 'consolas' ? {
+                  '--code-font': "'Consolas', 'Courier New', monospace",
+                } : {}),
                 ...(bgUrl ? {
                   backgroundImage: `url(${bgUrl})`,
                   backgroundSize: `${canvasSize.width}px ${canvasSize.height}px`,

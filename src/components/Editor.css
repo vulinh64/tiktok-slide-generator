@@ -78,7 +78,7 @@
   background: #f1f1f1;
   padding: 0.125em 0.375em;
   border-radius: 0.25em;
-  font-family: 'JetBrains Mono', 'Consolas', 'Fira Code', monospace;
+  font-family: var(--code-font, 'JetBrains Mono', 'Consolas', 'Fira Code', monospace);
   font-size: 1em;
   color: #e94560;
 }
@@ -91,7 +91,7 @@
   border-radius: 0.5em;
   margin: 0.75rem 0;
   overflow-x: auto;
-  font-family: 'JetBrains Mono', 'Consolas', 'Fira Code', monospace;
+  font-family: var(--code-font, 'JetBrains Mono', 'Consolas', 'Fira Code', monospace);
   font-size: 1em;
   line-height: 1.6;
 }

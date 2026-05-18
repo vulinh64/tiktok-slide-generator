@@ -2,6 +2,7 @@ import type { Plugin } from 'vite'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import JSZip from 'jszip'
 
 const NOTES_DIR = path.join(os.homedir(), '.notes')
 const INFO_FILE = 'info.json'
@@ -97,13 +98,20 @@ interface CanvasSize {
   height: number
 }
 
+type CodeFont = 'jetbrains' | 'consolas'
+
 interface DeckInfo {
   name: string
   customCss?: string
   canvasSize?: CanvasSize
+  codeFont?: CodeFont
   imgs: ImageEntry[]
   createdAt: string
   updatedAt: string
+}
+
+function parseCodeFont(v: unknown): CodeFont | undefined {
+  return v === 'jetbrains' || v === 'consolas' ? v : undefined
 }
 
 interface RootIndexEntry {
@@ -277,6 +285,19 @@ function removeFromRootIndex(id: string) {
   writeRootIndex(entries)
 }
 
+function rewriteImageRefs(s: string, newId: string): string {
+  return s.replace(/\/api\/slides\/[\w-]+\/images\//g, `/api/slides/${newId}/images/`)
+}
+
+// Find an unused deck id starting from now, bumping by 1s on collisions
+function findUniqueDeckId(): string {
+  let id = formatTimestamp()
+  for (let offset = 1; fs.existsSync(path.join(NOTES_DIR, id)) && offset < 60; offset++) {
+    id = formatTimestamp(new Date(Date.now() + offset * 1000))
+  }
+  return id
+}
+
 export function slidesPlugin(): Plugin {
   return {
     name: 'slides-api',
@@ -370,6 +391,15 @@ export function slidesPlugin(): Plugin {
             } else if (existingInfo?.canvasSize) {
               info.canvasSize = existingInfo.canvasSize
             }
+
+            // Only persist non-default codeFont; client treats undefined as 'jetbrains'
+            if (Object.prototype.hasOwnProperty.call(body, 'codeFont')) {
+              const cf = parseCodeFont(body.codeFont)
+              if (cf && cf !== 'jetbrains') info.codeFont = cf
+              // else: drop the field
+            } else if (existingInfo?.codeFont) {
+              info.codeFont = existingInfo.codeFont
+            }
             writeDeckInfo(deckDir, info)
 
             upsertRootIndex({
@@ -378,6 +408,171 @@ export function slidesPlugin(): Plugin {
             })
 
             res.end(JSON.stringify({ id, ...info, title: info.name }))
+            return
+          }
+
+          // IMPORT raw deck zip: POST /api/slides/import
+          if (urlPath === '/api/slides/import' && req.method === 'POST') {
+            const raw = await readBodyRaw(req)
+            let zip: JSZip
+            try {
+              zip = await JSZip.loadAsync(raw)
+            } catch {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: 'Invalid zip file' }))
+              return
+            }
+
+            const postEntry = zip.file(POST_FILE)
+            if (!postEntry) {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: `Missing ${POST_FILE}` }))
+              return
+            }
+            let postParsed: PostFile
+            try {
+              postParsed = JSON.parse(await postEntry.async('string')) as PostFile
+            } catch {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: `Invalid ${POST_FILE}` }))
+              return
+            }
+            if (!Array.isArray(postParsed.pages)) {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: `Invalid ${POST_FILE} pages` }))
+              return
+            }
+
+            const newId = findUniqueDeckId()
+            const newDeckDir = path.join(NOTES_DIR, newId)
+            ensureDir(newDeckDir)
+
+            // Rewrite per-deck image refs to point at the new id
+            const rewrittenPages: SerializedPage[] = postParsed.pages.map((p) => {
+              const meta: Record<string, unknown> = { ...(p.meta || {}) }
+              if (typeof meta.customCss === 'string') {
+                meta.customCss = rewriteImageRefs(meta.customCss, newId)
+              }
+              return {
+                meta,
+                html: typeof p.html === 'string' ? rewriteImageRefs(p.html, newId) : '',
+              }
+            })
+            writePost(newDeckDir, rewrittenPages)
+
+            // Restore info.json — every field is shape-validated so a
+            // hand-edited zip with bad types can't poison the deck.
+            const info: DeckInfo = { ...DEFAULT_INFO, imgs: [] }
+            let rawInfo: Record<string, unknown> = {}
+            const infoEntry = zip.file(INFO_FILE)
+            if (infoEntry) {
+              try {
+                const parsed = JSON.parse(await infoEntry.async('string')) as unknown
+                if (parsed && typeof parsed === 'object') rawInfo = parsed as Record<string, unknown>
+              } catch { /* ignore */ }
+            }
+            info.name = typeof rawInfo.name === 'string' && rawInfo.name.trim()
+              ? rawInfo.name
+              : DEFAULT_INFO.name
+            if (typeof rawInfo.customCss === 'string' && rawInfo.customCss.trim()) {
+              info.customCss = rewriteImageRefs(rawInfo.customCss, newId)
+            }
+            const cs = rawInfo.canvasSize as { width?: unknown; height?: unknown } | undefined
+            if (
+              cs && typeof cs === 'object' &&
+              typeof cs.width === 'number' && cs.width > 0 &&
+              typeof cs.height === 'number' && cs.height > 0
+            ) {
+              info.canvasSize = { width: cs.width, height: cs.height }
+            }
+            const importedCodeFont = parseCodeFont(rawInfo.codeFont)
+            if (importedCodeFont && importedCodeFont !== 'jetbrains') {
+              info.codeFont = importedCodeFont
+            }
+
+            // Collect image bytes from zip (path-whitelisted: only images/img-NNNN)
+            const zipImages = new Map<string, Buffer>()
+            for (const entryName of Object.keys(zip.files)) {
+              const entry = zip.files[entryName]
+              if (entry.dir) continue
+              const m = entryName.match(/^images\/(img-\d{4})$/)
+              if (!m) continue
+              zipImages.set(m[1], await entry.async('nodebuffer'))
+            }
+
+            // imgs becomes the join of files-in-zip and info.imgs metadata:
+            // entries listed in info.imgs without a file are dropped; files
+            // without an entry get synthesized defaults.
+            const infoImgsByName = new Map<string, Record<string, unknown>>()
+            if (Array.isArray(rawInfo.imgs)) {
+              for (const e of rawInfo.imgs as unknown[]) {
+                if (e && typeof e === 'object') {
+                  const r = e as Record<string, unknown>
+                  if (typeof r.name === 'string') infoImgsByName.set(r.name, r)
+                }
+              }
+            }
+            const nowTs = parseTimestamp(formatTimestamp())
+            for (const [name, buf] of zipImages) {
+              const meta = infoImgsByName.get(name) ?? {}
+              info.imgs.push({
+                name,
+                mime: typeof meta.mime === 'string' ? meta.mime : detectMime(buf),
+                size: buf.length,
+                width: typeof meta.width === 'number' && meta.width > 0 ? meta.width : 100,
+                addedAt: typeof meta.addedAt === 'string' ? meta.addedAt : nowTs,
+              })
+            }
+
+            info.createdAt = nowTs
+            info.updatedAt = nowTs
+            writeDeckInfo(newDeckDir, info)
+
+            // Write the binary payload we've already buffered
+            for (const [name, buf] of zipImages) {
+              fs.writeFileSync(path.join(newDeckDir, name), buf)
+            }
+            const bgEntry = zip.file('bg')
+            if (bgEntry) {
+              fs.writeFileSync(path.join(newDeckDir, 'bg'), await bgEntry.async('nodebuffer'))
+            }
+
+            upsertRootIndex({ id: newId, name: info.name })
+
+            res.end(JSON.stringify({ id: newId, title: info.name }))
+            return
+          }
+
+          // EXPORT raw deck zip: GET /api/slides/:id/export
+          const exportMatch = urlPath.match(/^\/api\/slides\/([\w-]+)\/export$/)
+          if (exportMatch && req.method === 'GET') {
+            const id = exportMatch[1]
+            const deckDir = path.join(NOTES_DIR, id)
+            if (!fs.existsSync(deckDir)) {
+              res.statusCode = 404
+              res.end(JSON.stringify({ error: 'Not found' }))
+              return
+            }
+            const info = readDeckInfo(deckDir)
+            const zip = new JSZip()
+            // Whitelist what we ship: metadata at root, images under images/,
+            // bg at root. Unknown files in the deck dir are deliberately dropped.
+            for (const fname of fs.readdirSync(deckDir)) {
+              const full = path.join(deckDir, fname)
+              if (!fs.statSync(full).isFile()) continue
+              if (fname === POST_FILE || fname === INFO_FILE || fname === 'bg') {
+                zip.file(fname, fs.readFileSync(full))
+              } else if (/^img-\d{4}$/.test(fname)) {
+                zip.file(`images/${fname}`, fs.readFileSync(full))
+              }
+            }
+            const buf = await zip.generateAsync({ type: 'nodebuffer' })
+            const safeName = (info.name || 'deck').replace(/[^a-zA-Z0-9._-]+/g, '_') || 'deck'
+            const filename = `${safeName}-${id}.zip`
+            res.setHeader('Content-Type', 'application/zip')
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+            res.setHeader('Content-Length', buf.length)
+            res.end(buf)
             return
           }
 
@@ -400,6 +595,7 @@ export function slidesPlugin(): Plugin {
               title: info.name,
               customCss: info.customCss ?? '',
               canvasSize: info.canvasSize,
+              codeFont: info.codeFont,
               imgs: info.imgs || [],
               hasBg: hasBgFile(deckDir),
               createdAt: info.createdAt || parseTimestamp(id),
