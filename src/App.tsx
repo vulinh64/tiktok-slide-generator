@@ -15,8 +15,10 @@ import type { CanvasSize } from './utils/canvas-size'
 import { SaveToast, useSaveToast } from './components/SaveToast'
 import './App.css'
 
-function skipProseMirrorSeparator(node: Node): boolean {
-  return !(node instanceof HTMLImageElement && node.classList.contains('ProseMirror-separator'))
+function skipNonExportedNodes(node: Node): boolean {
+  if (node instanceof HTMLImageElement && node.classList.contains('ProseMirror-separator')) return false
+  if (node instanceof HTMLElement && node.classList.contains('code-block-lang-select')) return false
+  return true
 }
 
 function App() {
@@ -126,7 +128,7 @@ function App() {
         height: canvasSize.height,
         pixelRatio: 2,
         backgroundColor: dark ? '#1a1a2e' : '#ffffff',
-        filter: skipProseMirrorSeparator,
+        filter: skipNonExportedNodes,
       })
       const link = document.createElement('a')
       const pageNum = String(activePage).padStart(4, '0')
@@ -194,7 +196,7 @@ function App() {
           height: canvasSize.height,
           pixelRatio: 2,
           backgroundColor: isDark ? '#1a1a2e' : '#ffffff',
-          filter: skipProseMirrorSeparator,
+          filter: skipNonExportedNodes,
         })
 
         const base64 = dataUrl.split(',')[1]
