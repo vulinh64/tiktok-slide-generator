@@ -3,7 +3,7 @@ import './SaveToast.css'
 
 export function useSaveToast() {
   const [message, setMessage] = useState<string | null>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const showToast = useCallback((msg: string) => {
     if (timerRef.current) clearTimeout(timerRef.current)

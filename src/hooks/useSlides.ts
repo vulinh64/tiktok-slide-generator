@@ -12,6 +12,7 @@ export interface SlideDeck {
   title: string
   createdAt: string
   updatedAt: string
+  pageCount?: number
 }
 
 export type CodeFont = 'jetbrains' | 'consolas'

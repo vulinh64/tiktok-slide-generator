@@ -21,5 +21,5 @@ Custom React hooks that own the app's runtime state: the Tiptap editor instance,
 
 ### usePages.ts
 - **Purpose:** Owns the in-memory array of slide pages (HTML strings + per-page `PageMeta`) and syncs it with the Tiptap editor.
-- **Returns:** `pages`, `activePage`, `pageMeta`, plus `switchPage`, `addPage`, `deletePage`, `getPreview`, `loadPages`, `getAllPages`, `getAllMetas`, `updatePageMeta`, `isPageDirty`, `hasDirtyPages`, `markAllClean`, `replaceUrlInPages`.
+- **Returns:** `pages`, `activePage`, `pageMeta`, plus `switchPage`, `addPage`, `deletePage`, `getPreview`, `loadPages`, `getAllPages`, `getAllMetas`, `setEditorContentSilently`, `updatePageMeta`, `isPageDirty`, `hasDirtyPages`, `markAllClean`, `replaceUrlInPages`.
 - **Notes:** Takes the Tiptap editor as its only argument and listens to its `update` event to write the current page HTML back into the array. Uses refs (`pagesRef`, `activePageRef`, `metaRef`, `dirtyRef`) so callbacks never read stale state, and a `suppressSave` flag to avoid feedback loops when `setContent` is called during page switching/loading. Tracks per-page dirty state for partial-save optimizations. `replaceUrlInPages` rewrites image URLs across every page (used after image upload renames). Consumed by `App.tsx`.

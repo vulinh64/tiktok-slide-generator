@@ -55,7 +55,7 @@ export function createShikiPlugin({
 }) {
   let currentHighlighter = highlighter
 
-  const plugin = new Plugin<DecorationSet>({
+  const plugin: Plugin<DecorationSet> = new Plugin<DecorationSet>({
     key: shikiPluginKey,
 
     state: {
@@ -102,7 +102,7 @@ export function createShikiPlugin({
     },
 
     props: {
-      decorations(state) {
+      decorations(state): DecorationSet {
         return plugin.getState(state) ?? DecorationSet.empty
       },
     },

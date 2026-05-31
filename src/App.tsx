@@ -46,6 +46,7 @@ function App() {
     loadPages,
     getAllPages,
     getAllMetas,
+    setEditorContentSilently,
     updatePageMeta,
     isPageDirty,
     markAllClean,
@@ -151,27 +152,52 @@ function App() {
     setExportState('exporting')
 
     const originalHtml = editor.getHTML()
+    let canvas: HTMLElement | null = null
+    let exportStyle: HTMLStyleElement | null = null
+    let origStyle: {
+      fontSize: string
+      fontFamily: string
+      slidePaddingX: string
+      className: string
+    } | null = null
+
+    const restoreExportDom = () => {
+      if (canvas && origStyle) {
+        canvas.className = origStyle.className
+        canvas.style.fontSize = origStyle.fontSize
+        canvas.style.fontFamily = origStyle.fontFamily
+        if (origStyle.slidePaddingX) {
+          canvas.style.setProperty('--slide-padding-x', origStyle.slidePaddingX)
+        } else {
+          canvas.style.removeProperty('--slide-padding-x')
+        }
+      }
+      exportStyle?.remove()
+      setEditorContentSilently(originalHtml)
+    }
 
     try {
       const { toPng } = await import('html-to-image')
       const JSZip = (await import('jszip')).default
       const zip = new JSZip()
+      const exportDate = new Date()
       const allPages = getAllPages()
       const allMetas = getAllMetas()
-      const canvas = document.getElementById('slide-canvas') as HTMLElement
+      canvas = document.getElementById('slide-canvas') as HTMLElement | null
       if (!canvas) throw new Error('Canvas not found')
 
       // Save original canvas styles to restore later
-      const origStyle = {
+      origStyle = {
         fontSize: canvas.style.fontSize,
         fontFamily: canvas.style.fontFamily,
+        slidePaddingX: canvas.style.getPropertyValue('--slide-padding-x'),
         className: canvas.className,
       }
 
       // Own <style> element mounted at end of <body> so it appears after the
       // React-managed style tag in source order; doubled selector gives it
       // higher specificity too, so per-iteration CSS always wins
-      const exportStyle = document.createElement('style')
+      exportStyle = document.createElement('style')
       exportStyle.id = 'export-custom-css'
       document.body.appendChild(exportStyle)
 
@@ -192,7 +218,7 @@ function App() {
           : ''
 
         // Set the content
-        editor.commands.setContent(allPages[i])
+        setEditorContentSilently(allPages[i])
 
         // Wait for DOM to settle
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
@@ -206,19 +232,16 @@ function App() {
         })
 
         const base64 = dataUrl.split(',')[1]
-        zip.file(`${String(i).padStart(4, '0')}.png`, base64, { base64: true })
+        zip.file(`${String(i).padStart(4, '0')}.png`, base64, {
+          base64: true,
+          date: exportDate,
+        })
       }
-
-      // Restore original state
-      canvas.className = origStyle.className
-      canvas.style.fontSize = origStyle.fontSize
-      canvas.style.fontFamily = origStyle.fontFamily
-      exportStyle.remove()
 
       // Restore editor content directly: switchPage would no-op because
       // activePage was never changed during the loop, even though the
       // editor's displayed content was swapped on every iteration.
-      editor.commands.setContent(originalHtml)
+      restoreExportDom()
 
       const blob = await zip.generateAsync({ type: 'blob' })
       const url = URL.createObjectURL(blob)
@@ -231,11 +254,10 @@ function App() {
       setExportState('done')
     } catch (err) {
       console.error('Export all failed:', err)
-      document.getElementById('export-custom-css')?.remove()
+      restoreExportDom()
       setExportState('idle')
-      editor.commands.setContent(originalHtml)
     }
-  }, [editor, getAllPages, getAllMetas, currentDeckTitle, canvasSize])
+  }, [editor, getAllPages, getAllMetas, setEditorContentSilently, currentDeckTitle, canvasSize])
 
   // Flush state to disk, then trigger a download of the whole deck dir as a zip
   const handleExportRaw = useCallback(async () => {

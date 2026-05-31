@@ -33,7 +33,7 @@ function loadShiki() {
   if (!shikiPromise) {
     shikiPromise = import('shiki').then(({ createHighlighter }) =>
       createHighlighter({
-        themes: ['dark-plus'],
+        themes: ['github-dark-default'],
         langs: SHIKI_LANGS,
       }),
     )
@@ -98,7 +98,7 @@ function createImageDropPastePlugin(deckIdRef: React.RefObject<string | null>) {
               })
               return true
             },
-            handlePaste(view, event) {
+            handlePaste(_view, event) {
               const files = event.clipboardData?.files
               if (!files?.length || !deckIdRef.current) return false
               const imageFiles = Array.from(files).filter((f) => f.type === 'image/png' || f.type === 'image/jpeg')

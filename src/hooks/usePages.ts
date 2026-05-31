@@ -139,6 +139,16 @@ export function usePages(editor: TiptapEditor | null) {
     return [...metaRef.current]
   }, [])
 
+  const setEditorContentSilently = useCallback(
+    (html: string) => {
+      if (!editor) return
+      suppressSave.current = true
+      editor.commands.setContent(html)
+      suppressSave.current = false
+    },
+    [editor],
+  )
+
   const updatePageMeta = useCallback((meta: Partial<PageMeta>) => {
     const idx = activePageRef.current
     metaRef.current[idx] = { ...metaRef.current[idx], ...meta }
@@ -193,6 +203,7 @@ export function usePages(editor: TiptapEditor | null) {
     loadPages,
     getAllPages,
     getAllMetas,
+    setEditorContentSilently,
     updatePageMeta,
     isPageDirty,
     hasDirtyPages,

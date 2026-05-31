@@ -16,7 +16,7 @@ Tiptap / ProseMirror extension code that augments the slide editor with syntax h
 - **Purpose:** Converts a code string into a flat list of styled tokens (`{ cls, style, length }`) consumed by `shikiPlugin` to build inline decorations.
 - **Extends:** Nothing Tiptap-specific; pure helper around Shiki's `HighlighterCore.codeToTokens`.
 - **Notes:**
-  - Hard-codes theme `'dark-plus'` and falls back to language `'text'` if the requested language isn't loaded by the highlighter.
-  - Implements Java-specific heuristics on top of Shiki: keyword/operator sets, PascalCase -> class-name, UPPER_SNAKE_CASE -> constant, import-line splitting on `.`/`;`, blob splitting for compound tokens, and reclassification of `entity.name.function` tokens into `definition` / `invocation` / `invocation static` / `invocation constructor` based on surrounding scopes (`storage.*`, `new`, `punctuation.separator.period`).
+  - Hard-codes theme `'github-dark-default'` and falls back to language `'text'` if the requested language isn't loaded by the highlighter.
+  - Uses Shiki's default token colors and font styles directly; there are no language-specific post-processing heuristics.
   - Newlines are emitted as zero-class tokens of length 1 so cumulative offsets line up with `block.pos + 1` in `shikiPlugin`.
   - Only exported symbol: `tokenizeCode`.
