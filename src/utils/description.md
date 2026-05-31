@@ -7,7 +7,7 @@ Shared, framework-agnostic types and constants used to describe slide canvas dim
 ### canvas-size.ts
 - **Purpose:** Defines the canvas dimension model and the built-in size presets used by the slide editor and exporter.
 - **Exports:** `CanvasSize` (interface), `CanvasPreset` (interface), `CANVAS_PRESETS` (TikTok / A4 / HD / Full HD), `DEFAULT_CANVAS_SIZE`, `CUSTOM_PRESET_VALUE` (`'custom'`), `matchPreset(size)`.
-- **Notes:** Consumed by `src/App.tsx`, `src/hooks/useSlides.ts`, and `src/server/slidesPlugin.ts`. `DEFAULT_CANVAS_SIZE` is derived from the first entry of `CANVAS_PRESETS` (TikTok 960×1600), so reordering the array changes the app default. `matchPreset` returns `CUSTOM_PRESET_VALUE` when no preset matches exactly.
+- **Notes:** Consumed by `src/App.tsx`, `src/hooks/useSlides.ts`, and `src/server/slidesPlugin.ts`. `DEFAULT_CANVAS_SIZE` is derived from the first entry of `CANVAS_PRESETS` (TikTok 960x1600), so reordering the array changes the app default. `matchPreset` returns `CUSTOM_PRESET_VALUE` when no preset matches exactly.
 
 ### page-meta.ts
 - **Purpose:** Per-page presentation metadata (scaling, dark mode, optional custom CSS) plus deck-level font defaults/options.

@@ -30,6 +30,7 @@ function App() {
   const [currentDeckTitle, setCurrentDeckTitle] = useState('')
   const [slideCss, setSlideCss] = useState('')
   const [slideCssModalOpen, setSlideCssModalOpen] = useState(false)
+  const [pageCssModalOpen, setPageCssModalOpen] = useState(false)
   const [imgManagerOpen, setImgManagerOpen] = useState(false)
   const [bgUrl, setBgUrl] = useState<string | null>(null)
   const [canvasSize, setCanvasSize] = useState<CanvasSize>(DEFAULT_CANVAS_SIZE)
@@ -454,7 +455,7 @@ function App() {
         globalFontFamilyRef.current,
       )
       markAllClean()
-      showToast('Slide CSS saved')
+      showToast('Deck CSS saved')
     },
     [editor, buildSerializedPages, saveDeck, markAllClean, showToast],
   )
@@ -555,151 +556,206 @@ function App() {
             <h1 className="app-title" onClick={handleRename} title="Click to rename">
               {currentDeckTitle || 'Untitled'}
             </h1>
+            <div className="app-actions">
+              <div className="app-menu">
+                <button className="app-menu-trigger" type="button">
+                  File
+                </button>
+                <div className="app-menu-popover">
+                  <button type="button" onClick={handleManualSave}>
+                    Save
+                  </button>
+                  <div className="app-menu-separator" />
+                  <button type="button" onClick={handleExportAll}>
+                    Export All
+                  </button>
+                  <button type="button" onClick={handleExportRaw}>
+                    Export Raw
+                  </button>
+                </div>
+              </div>
+              <div className="app-menu">
+                <button className="app-menu-trigger" type="button">
+                  Deck
+                </button>
+                <div className="app-menu-popover">
+                  <button
+                    type="button"
+                    onClick={() => setSlideCssModalOpen(true)}
+                    title="Deck CSS - applies to every page in this deck"
+                  >
+                    Deck CSS
+                  </button>
+                  <label className="app-menu-field">
+                    <span>Deck Size</span>
+                    <select
+                      value={canvasCustomMode ? CUSTOM_PRESET_VALUE : matchPreset(canvasSize)}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        if (v === CUSTOM_PRESET_VALUE) {
+                          setCanvasCustomMode(true)
+                          return
+                        }
+                        const preset = CANVAS_PRESETS.find((p) => p.value === v)
+                        if (preset) {
+                          setCanvasCustomMode(false)
+                          handleApplyCanvasSize({ width: preset.width, height: preset.height })
+                        }
+                      }}
+                    >
+                      {CANVAS_PRESETS.map((p) => (
+                        <option key={p.value} value={p.value}>{p.label}</option>
+                      ))}
+                      <option value={CUSTOM_PRESET_VALUE}>Custom</option>
+                    </select>
+                  </label>
+                  {canvasCustomMode && (
+                    <div className="app-menu-field-row">
+                      <label className="app-menu-field">
+                        <span>Width</span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={canvasSize.width}
+                          onChange={(e) => setCanvasSize({ ...canvasSize, width: Math.max(1, Number(e.target.value) || 1) })}
+                          onBlur={() => handleApplyCanvasSize(canvasSizeRef.current)}
+                          title="Canvas width (px)"
+                        />
+                      </label>
+                      <label className="app-menu-field">
+                        <span>Height</span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={canvasSize.height}
+                          onChange={(e) => setCanvasSize({ ...canvasSize, height: Math.max(1, Number(e.target.value) || 1) })}
+                          onBlur={() => handleApplyCanvasSize(canvasSizeRef.current)}
+                          title="Canvas height (px)"
+                        />
+                      </label>
+                    </div>
+                  )}
+                  <div className="app-menu-separator" />
+                  <button
+                    type="button"
+                    className={dark ? 'active' : ''}
+                    onClick={() => setDark(!dark)}
+                  >
+                    {dark ? 'Dark' : 'Light'}
+                  </button>
+                </div>
+              </div>
+              <div className="app-menu">
+                <button className="app-menu-trigger" type="button">
+                  Page
+                </button>
+                <div className="app-menu-popover">
+                  <button type="button" onClick={handleExport}>
+                    Export PNG
+                  </button>
+                  <div className="app-menu-separator" />
+                  <button
+                    type="button"
+                    onClick={() => setPageCssModalOpen(true)}
+                    title="Custom CSS for this page"
+                  >
+                    Page CSS
+                  </button>
+                </div>
+              </div>
+              <div className="app-menu">
+                <button className="app-menu-trigger" type="button">
+                  View
+                </button>
+                <div className="app-menu-popover">
+                  <label className="app-menu-field">
+                    <span>Font Size</span>
+                    <select value={fontScale} onChange={(e) => setFontScale(Number(e.target.value))}>
+                      <option value={100}>100%</option>
+                      <option value={150}>150%</option>
+                      <option value={200}>200%</option>
+                      <option value={250}>250%</option>
+                      <option value={300}>300%</option>
+                      <option value={400}>400%</option>
+                    </select>
+                  </label>
+                  <label className="app-menu-field">
+                    <span>Margin Size</span>
+                    <select value={marginScale} onChange={(e) => setMarginScale(Number(e.target.value))}>
+                      <option value={100}>Default</option>
+                      <option value={150}>150%</option>
+                      <option value={200}>200%</option>
+                      <option value={250}>250%</option>
+                      <option value={300}>300%</option>
+                    </select>
+                  </label>
+                  <label className="app-menu-field">
+                    <span>Zoom Size</span>
+                    <select value={canvasZoom} onChange={(e) => setCanvasZoom(Number(e.target.value))}>
+                      <option value={10}>10%</option>
+                      <option value={25}>25%</option>
+                      <option value={35}>35%</option>
+                      <option value={50}>50%</option>
+                      <option value={70}>70%</option>
+                      <option value={100}>100%</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div className="app-menu">
+                <button className="app-menu-trigger" type="button">
+                  Font
+                </button>
+                <div className="app-menu-popover">
+                  <label className="app-menu-field">
+                    <span>Text Font</span>
+                    <select
+                      value={globalFontFamily}
+                      onChange={(e) => handleApplyGlobalFont(e.target.value)}
+                      title="Font family - applies to every page in this deck"
+                    >
+                      {FONT_OPTIONS.map((f) => (
+                        <option key={f.value} value={f.value}>{f.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="app-menu-field">
+                    <span>Code Font</span>
+                    <select
+                      value={codeFont}
+                      onChange={(e) => handleApplyCodeFont(e.target.value as CodeFont)}
+                      title="Code block font - applies to every page in this deck"
+                    >
+                      <option value="jetbrains">JetBrains Mono</option>
+                      <option value="consolas">Consolas</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div className="app-menu">
+                <button className="app-menu-trigger" type="button">
+                  Images
+                </button>
+                <div className="app-menu-popover">
+                  <button type="button" onClick={handleBgUpload}>
+                    Background Image
+                  </button>
+                  <button type="button" onClick={handleBgRemove} disabled={!bgUrl}>
+                    Remove Background
+                  </button>
+                  <div className="app-menu-separator" />
+                  <button
+                    type="button"
+                    onClick={() => setImgManagerOpen(true)}
+                    disabled={!currentDeckId || !editor}
+                    title="Manage deck images"
+                  >
+                    Manage Images
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="app-actions">
-            <button className="mode-btn" onClick={handleManualSave}>
-              Save
-            </button>
-            <button className="export-btn" onClick={handleExport}>
-              Export PNG
-            </button>
-            <button className="export-btn" onClick={handleExportAll}>
-              Export All
-            </button>
-            <button className="export-btn" onClick={handleExportRaw}>
-              Export Raw
-            </button>
-            <button className="mode-btn" onClick={handleBgUpload}>
-              BG Image
-            </button>
-            <button
-              className="mode-btn"
-              onClick={() => setImgManagerOpen(true)}
-              disabled={!currentDeckId || !editor}
-              title="Manage deck images"
-            >
-              Manage Images
-            </button>
-            {bgUrl && (
-              <button className="mode-btn" onClick={handleBgRemove}>
-                Remove BG
-              </button>
-            )}
-          </div>
-        </div>
-        <div className="app-header-row app-header-row-settings">
-          <button
-            className={`mode-btn ${slideCss.trim() ? 'active' : ''}`}
-            onClick={() => setSlideCssModalOpen(true)}
-            title="Slide CSS — applies to every page in this deck"
-          >
-            Slide CSS
-          </button>
-          <select
-            className="font-scale-select"
-            value={codeFont}
-            onChange={(e) => handleApplyCodeFont(e.target.value as CodeFont)}
-            title="Code block font — applies to every page in this deck"
-          >
-            <option value="jetbrains">Code: JetBrains Mono</option>
-            <option value="consolas">Code: Consolas</option>
-          </select>
-          <select
-            className="font-scale-select"
-            value={canvasCustomMode ? CUSTOM_PRESET_VALUE : matchPreset(canvasSize)}
-            onChange={(e) => {
-              const v = e.target.value
-              if (v === CUSTOM_PRESET_VALUE) {
-                setCanvasCustomMode(true)
-                return
-              }
-              const preset = CANVAS_PRESETS.find((p) => p.value === v)
-              if (preset) {
-                setCanvasCustomMode(false)
-                handleApplyCanvasSize({ width: preset.width, height: preset.height })
-              }
-            }}
-          >
-            {CANVAS_PRESETS.map((p) => (
-              <option key={p.value} value={p.value}>{p.label}</option>
-            ))}
-            <option value={CUSTOM_PRESET_VALUE}>Custom</option>
-          </select>
-          {canvasCustomMode && (
-            <>
-              <input
-                className="font-scale-select"
-                type="number"
-                min={1}
-                style={{ width: '5em' }}
-                value={canvasSize.width}
-                onChange={(e) => setCanvasSize({ ...canvasSize, width: Math.max(1, Number(e.target.value) || 1) })}
-                onBlur={() => handleApplyCanvasSize(canvasSizeRef.current)}
-                title="Canvas width (px)"
-              />
-              <input
-                className="font-scale-select"
-                type="number"
-                min={1}
-                style={{ width: '5em' }}
-                value={canvasSize.height}
-                onChange={(e) => setCanvasSize({ ...canvasSize, height: Math.max(1, Number(e.target.value) || 1) })}
-                onBlur={() => handleApplyCanvasSize(canvasSizeRef.current)}
-                title="Canvas height (px)"
-              />
-            </>
-          )}
-          <button
-            className={`mode-btn dark-toggle ${dark ? 'active' : ''}`}
-            onClick={() => setDark(!dark)}
-          >
-            {dark ? 'Dark' : 'Light'}
-          </button>
-          <select
-            className="font-scale-select"
-            value={fontScale}
-            onChange={(e) => setFontScale(Number(e.target.value))}
-          >
-            <option value={100}>Font 100%</option>
-            <option value={150}>Font 150%</option>
-            <option value={200}>Font 200%</option>
-            <option value={250}>Font 250%</option>
-            <option value={300}>Font 300%</option>
-            <option value={400}>Font 400%</option>
-          </select>
-          <select
-            className="font-scale-select"
-            value={marginScale}
-            onChange={(e) => setMarginScale(Number(e.target.value))}
-          >
-            <option value={100}>Margin Default</option>
-            <option value={150}>Margin 150%</option>
-            <option value={200}>Margin 200%</option>
-            <option value={250}>Margin 250%</option>
-            <option value={300}>Margin 300%</option>
-          </select>
-          <select
-            className="font-scale-select"
-            value={globalFontFamily}
-            onChange={(e) => handleApplyGlobalFont(e.target.value)}
-            title="Font family — applies to every page in this deck"
-          >
-            {FONT_OPTIONS.map((f) => (
-              <option key={f.value} value={f.value}>{f.label}</option>
-            ))}
-          </select>
-          <select
-            className="font-scale-select"
-            value={canvasZoom}
-            onChange={(e) => setCanvasZoom(Number(e.target.value))}
-          >
-            <option value={10}>Zoom 10%</option>
-            <option value={25}>Zoom 25%</option>
-            <option value={35}>Zoom 35%</option>
-            <option value={50}>Zoom 50%</option>
-            <option value={70}>Zoom 70%</option>
-            <option value={100}>Zoom 100%</option>
-          </select>
         </div>
       </header>
 
@@ -724,8 +780,6 @@ function App() {
           <Toolbar
             editor={editor}
             deckId={currentDeckId}
-            customCss={customCss}
-            onChangeCustomCss={setCustomCss}
           />
         )}
         <div
@@ -767,11 +821,20 @@ function App() {
 
       <CssModal
         open={slideCssModalOpen}
-        title="Slide CSS (applies to every page in this deck)"
+        title="Deck CSS (applies to every page in this deck)"
         hint="Lower priority than Page CSS; higher than defaults. Write selectors as if inside #slide-canvas, e.g. h1 { color: red; }"
         value={slideCss}
         onApply={handleApplySlideCss}
         onClose={() => setSlideCssModalOpen(false)}
+      />
+
+      <CssModal
+        open={pageCssModalOpen}
+        title="Page CSS (this page only)"
+        hint="Highest priority - overrides Deck CSS and defaults. Write selectors as if inside #slide-canvas, e.g. h1 { color: red; }"
+        value={customCss}
+        onApply={setCustomCss}
+        onClose={() => setPageCssModalOpen(false)}
       />
 
       {editor && (

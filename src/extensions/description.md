@@ -8,7 +8,7 @@ Tiptap / ProseMirror extension code that augments the slide editor with syntax h
 - **Purpose:** Builds a ProseMirror `Plugin` that decorates `code_block` nodes with Shiki-derived inline styles.
 - **Extends:** Plain `Plugin` from `@tiptap/pm/state` (not a Tiptap `Node`/`Mark`/`Extension`); attached to the `CodeBlock` node through `addProseMirrorPlugins` in `src/hooks/useSlideEditor.ts`.
 - **Notes:**
-  - Exposes `createShikiPlugin({ name, highlighter })` — `name` is the node type to scan (passed as `this.name` from the Tiptap extension), `highlighter` may start as `null` and be swapped in later via a transaction meta key `'shikiHighlighter'`.
+  - Exposes `createShikiPlugin({ name, highlighter })` - `name` is the node type to scan (passed as `this.name` from the Tiptap extension), `highlighter` may start as `null` and be swapped in later via a transaction meta key `'shikiHighlighter'`.
   - Maintains a `DecorationSet` in plugin state; recomputes decorations when the highlighter is injected, when code-block count changes, when the selection enters/leaves a code block, or when a step touches a code block; otherwise just maps the existing set.
   - Decorations are `Decoration.inline` with `class` and `style` attrs produced by `tokenizeCode`.
 

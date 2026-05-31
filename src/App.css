@@ -27,12 +27,7 @@
 }
 
 .app-header-row-primary {
-  justify-content: space-between;
-}
-
-.app-header-row-settings {
-  flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .app-header-left {
@@ -40,6 +35,7 @@
   align-items: center;
   gap: 0.75em;
   min-width: 0;
+  flex-wrap: wrap;
 }
 
 .back-btn {
@@ -80,7 +76,130 @@
 
 .app-actions {
   display: flex;
-  gap: 0.5em;
+  align-items: center;
+  gap: 0.25em;
+  flex-shrink: 0;
+}
+
+.app-menu {
+  position: relative;
+}
+
+.app-menu-trigger {
+  padding: 0.45em 0.75em;
+  border: 0.0625em solid transparent;
+  background: transparent;
+  color: #d7d7e5;
+  border-radius: 0.375em;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.app-menu:hover .app-menu-trigger {
+  background: #0f3460;
+  border-color: #27496d;
+  color: #fff;
+}
+
+.app-menu-popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 50;
+  min-width: 11em;
+  display: none;
+  flex-direction: column;
+  padding: 0.35em;
+  background: #101a32;
+  border: 0.0625em solid #27496d;
+  border-radius: 0.375em;
+  box-shadow: 0 0.75em 2em rgba(0, 0, 0, 0.35);
+}
+
+.app-menu-popover-right {
+  left: auto;
+  right: 0;
+}
+
+.app-menu:hover .app-menu-popover {
+  display: flex;
+}
+
+.app-menu-popover button {
+  width: 100%;
+  padding: 0.55em 0.65em;
+  border: 0;
+  background: transparent;
+  color: #d7d7e5;
+  border-radius: 0.25em;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+.app-menu-popover button:hover:not(:disabled),
+.app-menu-popover button:focus-visible:not(:disabled) {
+  background: #0f3460;
+  color: #fff;
+  outline: none;
+}
+
+.app-menu-popover button.active {
+  background: #e94560;
+  color: #fff;
+}
+
+.app-menu-popover button:disabled {
+  color: #686880;
+  cursor: default;
+}
+
+.app-menu-separator {
+  height: 0.0625em;
+  margin: 0.35em 0.15em;
+  background: #27496d;
+}
+
+.app-menu-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  padding: 0.45em 0.4em;
+  color: #d7d7e5;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.app-menu-field select,
+.app-menu-field input {
+  width: 100%;
+  padding: 0.45em 0.5em;
+  border: 0.0625em solid #27496d;
+  background: #16213e;
+  color: #e0e0e0;
+  border-radius: 0.25em;
+  font: inherit;
+  outline: none;
+}
+
+.app-menu-field select:hover,
+.app-menu-field select:focus,
+.app-menu-field input:hover,
+.app-menu-field input:focus {
+  border-color: #3d6b9a;
+}
+
+.app-menu-field option {
+  background: #16213e;
+  color: #e0e0e0;
+}
+
+.app-menu-field-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35em;
 }
 
 .mode-btn {
@@ -104,29 +223,6 @@
   background: #e94560;
   border-color: #e94560;
   color: #fff;
-}
-
-.font-scale-select {
-  padding: 0.5em 0.75em;
-  border: 0.0625em solid #0f3460;
-  background: transparent;
-  color: #a0a0b8;
-  border-radius: 0.375em;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 500;
-  outline: none;
-  transition: all 0.15s ease;
-}
-
-.font-scale-select:hover {
-  background: #0f3460;
-  color: #fff;
-}
-
-.font-scale-select option {
-  background: #16213e;
-  color: #e0e0e0;
 }
 
 .export-btn {

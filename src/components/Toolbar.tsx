@@ -1,13 +1,10 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef } from 'react'
 import type { Editor as TiptapEditor } from '@tiptap/react'
-import { CssModal } from './CssModal'
 import './Toolbar.css'
 
 interface ToolbarProps {
   editor: TiptapEditor
   deckId?: string | null
-  customCss?: string
-  onChangeCustomCss?: (css: string) => void
 }
 
 async function uploadImage(deckId: string, file: File): Promise<string | null> {
@@ -22,9 +19,8 @@ async function uploadImage(deckId: string, file: File): Promise<string | null> {
   return data.url as string
 }
 
-export function Toolbar({ editor, deckId, customCss = '', onChangeCustomCss }: ToolbarProps) {
+export function Toolbar({ editor, deckId }: ToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [cssModalOpen, setCssModalOpen] = useState(false)
 
   const addImage = useCallback(() => {
     if (!deckId) {
@@ -242,13 +238,6 @@ export function Toolbar({ editor, deckId, customCss = '', onChangeCustomCss }: T
         >
           &mdash; HR
         </button>
-        <button
-          className={`toolbar-btn ${customCss.trim() ? 'active' : ''}`}
-          onClick={() => setCssModalOpen(true)}
-          title="Custom CSS for this page"
-        >
-          CSS
-        </button>
       </div>
 
       <div className="toolbar-divider" />
@@ -272,15 +261,6 @@ export function Toolbar({ editor, deckId, customCss = '', onChangeCustomCss }: T
           Redo
         </button>
       </div>
-
-      <CssModal
-        open={cssModalOpen}
-        title="Page CSS (this page only)"
-        hint="Highest priority — overrides Slide CSS and defaults. Write selectors as if inside #slide-canvas, e.g. h1 { color: red; }"
-        value={customCss}
-        onApply={(css) => onChangeCustomCss?.(css)}
-        onClose={() => setCssModalOpen(false)}
-      />
     </div>
   )
 }
