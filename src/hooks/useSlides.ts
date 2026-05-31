@@ -21,6 +21,7 @@ export interface SlideDeckFull extends SlideDeck {
   pages: SerializedPage[]
   customCss?: string
   canvasSize?: CanvasSize
+  fontFamily?: string
   codeFont?: CodeFont
   hasBg?: boolean
 }
@@ -54,11 +55,12 @@ export function useSlides() {
       customCss?: string,
       canvasSize?: CanvasSize,
       codeFont?: CodeFont,
+      fontFamily?: string,
     ): Promise<string> => {
       const res = await fetch('/api/slides', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: existingId, title, pages, customCss, canvasSize, codeFont }),
+        body: JSON.stringify({ id: existingId, title, pages, customCss, canvasSize, codeFont, fontFamily }),
       })
       const data = await res.json()
       await refresh()

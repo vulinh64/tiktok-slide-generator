@@ -12,7 +12,7 @@ UI building blocks for the slide editor: the home/dashboard screen, the Tiptap e
 ### Toolbar.tsx (+ Toolbar.css)
 - **Purpose:** formatting toolbar for the active page (text styles, headings, lists, alignment, color/highlight, image insert, HR, custom CSS, undo/redo).
 - **Exports:** `Toolbar`
-- **Notes:** Hosts `ImageManager` and `CssModal` as children. Uploads single images via `POST /api/slides/:deckId/images`; falls back to URL prompt when no `deckId`. Per-page CSS is plumbed through `customCss` / `onChangeCustomCss`.
+- **Notes:** Hosts `CssModal` as a child. Uploads/inserts a single image via `POST /api/slides/:deckId/images`; falls back to URL prompt when no `deckId`. The deck-level `ImageManager` is opened from `App.tsx`. Per-page CSS is plumbed through `customCss` / `onChangeCustomCss`.
 
 ### PageList.tsx (+ PageList.css)
 - **Purpose:** left-rail list of pages in the current deck with add/select/delete and truncated text previews.
@@ -32,7 +32,7 @@ UI building blocks for the slide editor: the home/dashboard screen, the Tiptap e
 ### ImageManager.tsx (+ ImageManager.css)
 - **Purpose:** modal grid of all images uploaded to the current deck — click to insert, click name to rename, x to delete; supports multi-file upload.
 - **Exports:** `ImageManager`
-- **Notes:** Talks to `/api/slides/:deckId/images` (GET/POST/PATCH/DELETE). Uploads sequentially to avoid name collisions on the server. Calls `onImageRenamed` so the parent can update existing slide HTML referencing the old name. Validates names against `/^[a-zA-Z0-9._-]+$/`.
+- **Notes:** Opened from the deck-level header in `App.tsx`. Talks to `/api/slides/:deckId/images` (GET/POST/PATCH/DELETE). Uploads sequentially to avoid name collisions on the server. Calls `onImageRenamed` so the parent can update existing slide HTML referencing the old name. Validates names against `/^[a-zA-Z0-9._-]+$/`.
 
 ### ImageView.tsx (+ ImageView.css)
 - **Purpose:** Tiptap `NodeView` for the image node — renders the `<img>` and a hover popover with a percent-width input (25-400%).

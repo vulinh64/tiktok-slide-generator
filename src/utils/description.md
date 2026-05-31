@@ -1,6 +1,6 @@
 # src/utils
 
-Shared, framework-agnostic types and constants used to describe slide canvas dimensions and per-page presentation metadata (fonts, scaling, theme). These modules hold no React/Tiptap dependencies and act as the single source of truth for defaults and preset lists referenced by hooks, the top-level `App`, and the dev-server slides plugin.
+Shared, framework-agnostic types and constants used to describe slide canvas dimensions, page presentation metadata, and font choices. These modules hold no React/Tiptap dependencies and act as the single source of truth for defaults and preset lists referenced by hooks, the top-level `App`, and the dev-server slides plugin.
 
 ## Files
 
@@ -10,6 +10,6 @@ Shared, framework-agnostic types and constants used to describe slide canvas dim
 - **Notes:** Consumed by `src/App.tsx`, `src/hooks/useSlides.ts`, and `src/server/slidesPlugin.ts`. `DEFAULT_CANVAS_SIZE` is derived from the first entry of `CANVAS_PRESETS` (TikTok 960×1600), so reordering the array changes the app default. `matchPreset` returns `CUSTOM_PRESET_VALUE` when no preset matches exactly.
 
 ### page-meta.ts
-- **Purpose:** Per-page presentation metadata (font, scaling, dark mode, optional custom CSS) plus the font dropdown options.
-- **Exports:** `PageMeta` (interface with `fontScale`, `marginScale`, `dark`, `fontFamily`, optional `customCss`), `FONT_OPTIONS` (value/label/css triples for Segoe UI Emoji, Inter, JetBrains Mono, Consolas), `DEFAULT_META`.
-- **Notes:** Consumed by `src/App.tsx`, `src/hooks/usePages.ts`, and `src/hooks/useSlides.ts`. `fontScale` and `marginScale` are percentages (100 = baseline). `FONT_OPTIONS[].css` is the literal `font-family` stack written into rendered slides; the `value` field is what gets stored in `PageMeta.fontFamily`.
+- **Purpose:** Per-page presentation metadata (scaling, dark mode, optional custom CSS) plus deck-level font defaults/options.
+- **Exports:** `PageMeta` (interface with `fontScale`, `marginScale`, `dark`, optional `customCss`), `DEFAULT_FONT_FAMILY`, `FONT_OPTIONS` (value/label/css triples for Segoe UI Emoji, Inter, JetBrains Mono, Consolas), `DEFAULT_META`.
+- **Notes:** Consumed by `src/App.tsx`, `src/hooks/usePages.ts`, and `src/hooks/useSlides.ts`. `fontScale` and `marginScale` are percentages (100 = baseline). `FONT_OPTIONS[].css` is the literal `font-family` stack written into rendered slides; the `value` field is persisted at deck level as `fontFamily`. Page metadata does not carry normal-text or code font choices.

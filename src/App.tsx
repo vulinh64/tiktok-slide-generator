@@ -4,12 +4,13 @@ import { Toolbar } from './components/Toolbar'
 import { PageList } from './components/PageList'
 import { Home } from './components/Home'
 import { CssModal } from './components/CssModal'
+import { ImageManager } from './components/ImageManager'
 import { useSlideEditor } from './hooks/useSlideEditor'
 import { useSessionState } from './hooks/useSessionState'
 import { useSlides } from './hooks/useSlides'
 import type { CodeFont } from './hooks/useSlides'
 import { usePages } from './hooks/usePages'
-import { DEFAULT_META, FONT_OPTIONS } from './utils/page-meta'
+import { DEFAULT_FONT_FAMILY, DEFAULT_META, FONT_OPTIONS } from './utils/page-meta'
 import type { PageMeta } from './utils/page-meta'
 import { CANVAS_PRESETS, CUSTOM_PRESET_VALUE, DEFAULT_CANVAS_SIZE, matchPreset } from './utils/canvas-size'
 import type { CanvasSize } from './utils/canvas-size'
@@ -29,9 +30,11 @@ function App() {
   const [currentDeckTitle, setCurrentDeckTitle] = useState('')
   const [slideCss, setSlideCss] = useState('')
   const [slideCssModalOpen, setSlideCssModalOpen] = useState(false)
+  const [imgManagerOpen, setImgManagerOpen] = useState(false)
   const [bgUrl, setBgUrl] = useState<string | null>(null)
   const [canvasSize, setCanvasSize] = useState<CanvasSize>(DEFAULT_CANVAS_SIZE)
   const [canvasCustomMode, setCanvasCustomMode] = useState(false)
+  const [globalFontFamily, setGlobalFontFamily] = useState(DEFAULT_FONT_FAMILY)
   const [codeFont, setCodeFont] = useState<CodeFont>('jetbrains')
   const { editor, setDeckId } = useSlideEditor()
   const { decks, loading, refresh, saveDeck, loadDeck, deleteDeck } = useSlides()
@@ -58,12 +61,10 @@ function App() {
   const fontScale = pageMeta.fontScale
   const marginScale = pageMeta.marginScale
   const dark = pageMeta.dark
-  const fontFamily = pageMeta.fontFamily
   const customCss = pageMeta.customCss ?? ''
   const setFontScale = useCallback((v: number) => updatePageMeta({ fontScale: v }), [updatePageMeta])
   const setMarginScale = useCallback((v: number) => updatePageMeta({ marginScale: v }), [updatePageMeta])
   const setDark = useCallback((v: boolean) => updatePageMeta({ dark: v }), [updatePageMeta])
-  const setFontFamily = useCallback((v: string) => updatePageMeta({ fontFamily: v }), [updatePageMeta])
   const setCustomCss = useCallback((v: string) => updatePageMeta({ customCss: v }), [updatePageMeta])
 
   // Refs for the beforeunload handler and persistCurrentDeck
@@ -71,12 +72,14 @@ function App() {
   const currentDeckTitleRef = useRef(currentDeckTitle)
   const slideCssRef = useRef(slideCss)
   const canvasSizeRef = useRef(canvasSize)
+  const globalFontFamilyRef = useRef(globalFontFamily)
   const codeFontRef = useRef(codeFont)
 
   useEffect(() => { currentDeckIdRef.current = currentDeckId; setDeckId(currentDeckId) }, [currentDeckId, setDeckId])
   useEffect(() => { currentDeckTitleRef.current = currentDeckTitle }, [currentDeckTitle])
   useEffect(() => { slideCssRef.current = slideCss }, [slideCss])
   useEffect(() => { canvasSizeRef.current = canvasSize }, [canvasSize])
+  useEffect(() => { globalFontFamilyRef.current = globalFontFamily }, [globalFontFamily])
   useEffect(() => { codeFontRef.current = codeFont }, [codeFont])
 
   // Pack in-memory state into the wire format the server expects
@@ -96,6 +99,7 @@ function App() {
       slideCssRef.current,
       canvasSizeRef.current,
       codeFontRef.current,
+      globalFontFamilyRef.current,
     )
   }, [editor, buildSerializedPages, saveDeck])
 
@@ -113,6 +117,7 @@ function App() {
             customCss: slideCssRef.current,
             canvasSize: canvasSizeRef.current,
             codeFont: codeFontRef.current,
+            fontFamily: globalFontFamilyRef.current,
           })],
           { type: 'application/json' },
         ),
@@ -206,7 +211,7 @@ function App() {
         const isDark = meta.dark ?? true
         const fs = meta.fontScale ?? 100
         const ms = meta.marginScale ?? 100
-        const ff = FONT_OPTIONS.find((f) => f.value === meta.fontFamily)?.css ?? FONT_OPTIONS[0].css
+        const ff = FONT_OPTIONS.find((f) => f.value === globalFontFamilyRef.current)?.css ?? FONT_OPTIONS[0].css
 
         // Apply this page's metadata directly to the canvas DOM
         canvas.className = `slide-canvas ${isDark ? 'dark' : ''}`
@@ -337,6 +342,19 @@ function App() {
     setBgUrl(null)
   }, [currentDeckId])
 
+  const handleImageRenamed = useCallback(
+    (oldName: string, newName: string) => {
+      if (!currentDeckId) return
+      const oldUrl = `/api/slides/${currentDeckId}/images/${oldName}`
+      const newUrl = `/api/slides/${currentDeckId}/images/${newName}`
+      replaceUrlInPages(oldUrl, newUrl)
+      persistCurrentDeck()
+      markAllClean()
+      showToast('Image renamed')
+    },
+    [currentDeckId, replaceUrlInPages, persistCurrentDeck, markAllClean, showToast],
+  )
+
   // Home screen: open existing deck
   const handleHomeOpen = useCallback(
     async (id: string) => {
@@ -352,6 +370,7 @@ function App() {
       setCanvasSize(loadedSize)
       setCanvasCustomMode(matchPreset(loadedSize) === CUSTOM_PRESET_VALUE)
       setBgUrl(deck.hasBg ? `/api/slides/${deck.id}/bg?t=${Date.now()}` : null)
+      setGlobalFontFamily(deck.fontFamily ?? DEFAULT_FONT_FAMILY)
       setCodeFont(deck.codeFont ?? 'jetbrains')
       setScreen('editor')
     },
@@ -369,6 +388,8 @@ function App() {
       undefined,
       undefined,
       DEFAULT_CANVAS_SIZE,
+      undefined,
+      DEFAULT_FONT_FAMILY,
     )
     setCurrentDeckId(id)
     setCurrentDeckTitle('')
@@ -376,6 +397,7 @@ function App() {
     setCanvasSize(DEFAULT_CANVAS_SIZE)
     setCanvasCustomMode(false)
     setBgUrl(null)
+    setGlobalFontFamily(DEFAULT_FONT_FAMILY)
     setCodeFont('jetbrains')
     setScreen('editor')
   }, [editor, loadPages, saveDeck])
@@ -429,6 +451,7 @@ function App() {
         css,
         canvasSizeRef.current,
         codeFontRef.current,
+        globalFontFamilyRef.current,
       )
       markAllClean()
       showToast('Slide CSS saved')
@@ -447,6 +470,7 @@ function App() {
         slideCssRef.current,
         size,
         codeFontRef.current,
+        globalFontFamilyRef.current,
       )
       markAllClean()
       showToast('Canvas size saved')
@@ -465,9 +489,29 @@ function App() {
         slideCssRef.current,
         canvasSizeRef.current,
         font,
+        globalFontFamilyRef.current,
       )
       markAllClean()
       showToast('Code font saved')
+    },
+    [editor, buildSerializedPages, saveDeck, markAllClean, showToast],
+  )
+
+  const handleApplyGlobalFont = useCallback(
+    async (font: string) => {
+      setGlobalFontFamily(font)
+      if (!editor || !currentDeckIdRef.current) return
+      await saveDeck(
+        currentDeckTitleRef.current || 'Untitled',
+        buildSerializedPages(),
+        currentDeckIdRef.current,
+        slideCssRef.current,
+        canvasSizeRef.current,
+        codeFontRef.current,
+        font,
+      )
+      markAllClean()
+      showToast('Font saved')
     },
     [editor, buildSerializedPages, saveDeck, markAllClean, showToast],
   )
@@ -481,6 +525,7 @@ function App() {
     setCanvasSize(DEFAULT_CANVAS_SIZE)
     setCanvasCustomMode(false)
     setBgUrl(null)
+    setGlobalFontFamily(DEFAULT_FONT_FAMILY)
     setCodeFont('jetbrains')
     await refresh()
     setScreen('home')
@@ -526,6 +571,14 @@ function App() {
             </button>
             <button className="mode-btn" onClick={handleBgUpload}>
               BG Image
+            </button>
+            <button
+              className="mode-btn"
+              onClick={() => setImgManagerOpen(true)}
+              disabled={!currentDeckId || !editor}
+              title="Manage deck images"
+            >
+              Manage Images
             </button>
             {bgUrl && (
               <button className="mode-btn" onClick={handleBgRemove}>
@@ -627,8 +680,9 @@ function App() {
           </select>
           <select
             className="font-scale-select"
-            value={fontFamily}
-            onChange={(e) => setFontFamily(e.target.value)}
+            value={globalFontFamily}
+            onChange={(e) => handleApplyGlobalFont(e.target.value)}
+            title="Font family — applies to every page in this deck"
           >
             {FONT_OPTIONS.map((f) => (
               <option key={f.value} value={f.value}>{f.label}</option>
@@ -672,15 +726,6 @@ function App() {
             deckId={currentDeckId}
             customCss={customCss}
             onChangeCustomCss={setCustomCss}
-            onImageRenamed={(oldName, newName) => {
-              if (!currentDeckId) return
-              const oldUrl = `/api/slides/${currentDeckId}/images/${oldName}`
-              const newUrl = `/api/slides/${currentDeckId}/images/${newName}`
-              replaceUrlInPages(oldUrl, newUrl)
-              persistCurrentDeck()
-              markAllClean()
-              showToast('Image renamed')
-            }}
           />
         )}
         <div
@@ -703,7 +748,7 @@ function App() {
                 width: `${canvasSize.width}px`,
                 height: `${canvasSize.height}px`,
                 fontSize: `${(18 * fontScale) / 100}px`,
-                fontFamily: FONT_OPTIONS.find((f) => f.value === fontFamily)?.css,
+                fontFamily: FONT_OPTIONS.find((f) => f.value === globalFontFamily)?.css,
                 '--slide-padding-x': `${(48 * marginScale) / 100}px`,
                 ...(codeFont === 'consolas' ? {
                   '--code-font': "'Consolas', 'Courier New', monospace",
@@ -728,6 +773,16 @@ function App() {
         onApply={handleApplySlideCss}
         onClose={() => setSlideCssModalOpen(false)}
       />
+
+      {editor && (
+        <ImageManager
+          editor={editor}
+          deckId={currentDeckId}
+          open={imgManagerOpen}
+          onClose={() => setImgManagerOpen(false)}
+          onImageRenamed={handleImageRenamed}
+        />
+      )}
 
       <SaveToast message={toastMessage} />
 

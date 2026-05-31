@@ -1,6 +1,6 @@
 # tiktok-slider
 
-A small React + TypeScript + Vite app for authoring multi-page "slide decks" suitable for TikTok-style image carousels. Pages are edited in a Tiptap rich-text editor with per-page styling (font, dark mode, custom CSS) and a configurable canvas size, then exported to PNG — one slide at a time or a whole deck as a ZIP.
+A small React + TypeScript + Vite app for authoring multi-page "slide decks" suitable for TikTok-style image carousels. Pages are edited in a Tiptap rich-text editor with a deck-level font, per-page styling (font scale, margin scale, dark mode, custom CSS), and a configurable canvas size, then exported to PNG: one slide at a time or a whole deck as a ZIP.
 
 ## Run in dev
 
@@ -13,9 +13,9 @@ The dev server includes a Vite middleware plugin that persists decks, page image
 
 ## Other scripts
 
-- `npm run build` — type-check and build for production (`tsc -b && vite build`)
-- `npm run preview` — preview the production build
-- `npm run lint` — run ESLint
+- `npm run build` - type-check and build for production (`tsc -b && vite build`)
+- `npm run preview` - preview the production build
+- `npm run lint` - run ESLint
 
 ## More
 

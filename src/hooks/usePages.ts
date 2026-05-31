@@ -5,6 +5,17 @@ import {DEFAULT_META} from '../utils/page-meta'
 
 const DEFAULT_PAGE = '<h1>New Page</h1><p>Start writing...</p>'
 
+function normalizeMeta(meta?: Partial<PageMeta> | Record<string, unknown>): PageMeta {
+  const source = (meta ?? {}) as Record<string, unknown>
+  return {
+    ...DEFAULT_META,
+    fontScale: typeof source.fontScale === 'number' ? source.fontScale : DEFAULT_META.fontScale,
+    marginScale: typeof source.marginScale === 'number' ? source.marginScale : DEFAULT_META.marginScale,
+    dark: typeof source.dark === 'boolean' ? source.dark : DEFAULT_META.dark,
+    customCss: typeof source.customCss === 'string' ? source.customCss : undefined,
+  }
+}
+
 export function usePages(editor: TiptapEditor | null) {
   const [pages, setPages] = useState<string[]>([DEFAULT_PAGE])
   const [activePage, setActivePage] = useState(0)
@@ -48,7 +59,7 @@ export function usePages(editor: TiptapEditor | null) {
       setActivePage(index)
       setPages([...pagesRef.current])
       // Switch meta
-      setPageMeta({ ...DEFAULT_META, ...metaRef.current[index] })
+      setPageMeta(normalizeMeta(metaRef.current[index]))
     },
     [editor],
   )
@@ -63,14 +74,14 @@ export function usePages(editor: TiptapEditor | null) {
       : pagesRef.current.length
     pagesRef.current.splice(insertAt, 0, DEFAULT_PAGE)
     dirtyRef.current.splice(insertAt, 0, false)
-    metaRef.current.splice(insertAt, 0, { ...DEFAULT_META })
+    metaRef.current.splice(insertAt, 0, normalizeMeta())
     // Switch to new page
     suppressSave.current = true
     editor.commands.setContent(DEFAULT_PAGE)
     suppressSave.current = false
     setActivePage(insertAt)
     setPages([...pagesRef.current])
-    setPageMeta({ ...DEFAULT_META })
+    setPageMeta(normalizeMeta())
   }, [editor])
 
   const deletePage = useCallback(
@@ -97,7 +108,7 @@ export function usePages(editor: TiptapEditor | null) {
       }
       setActivePage(newActive)
       setPages([...pagesRef.current])
-      setPageMeta({ ...DEFAULT_META, ...metaRef.current[newActive] })
+      setPageMeta(normalizeMeta(metaRef.current[newActive]))
     },
     [editor],
   )
@@ -117,13 +128,13 @@ export function usePages(editor: TiptapEditor | null) {
       const p = htmlPages.length > 0 ? htmlPages : [DEFAULT_PAGE]
       pagesRef.current = [...p]
       dirtyRef.current = p.map(() => false)
-      metaRef.current = p.map((_, i) => ({ ...DEFAULT_META, ...metas?.[i] }))
+      metaRef.current = p.map((_, i) => normalizeMeta(metas?.[i]))
       suppressSave.current = true
       editor.commands.setContent(p[0])
       suppressSave.current = false
       setActivePage(0)
       setPages([...p])
-      setPageMeta({ ...metaRef.current[0] })
+      setPageMeta(normalizeMeta(metaRef.current[0]))
     },
     [editor],
   )
@@ -136,7 +147,7 @@ export function usePages(editor: TiptapEditor | null) {
   }, [editor])
 
   const getAllMetas = useCallback((): PageMeta[] => {
-    return [...metaRef.current]
+    return metaRef.current.map((meta) => normalizeMeta(meta))
   }, [])
 
   const setEditorContentSilently = useCallback(
@@ -151,7 +162,7 @@ export function usePages(editor: TiptapEditor | null) {
 
   const updatePageMeta = useCallback((meta: Partial<PageMeta>) => {
     const idx = activePageRef.current
-    metaRef.current[idx] = { ...metaRef.current[idx], ...meta }
+    metaRef.current[idx] = normalizeMeta({ ...metaRef.current[idx], ...meta })
     dirtyRef.current[idx] = true
     setPageMeta({ ...metaRef.current[idx] })
   }, [])

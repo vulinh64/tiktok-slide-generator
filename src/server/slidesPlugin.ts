@@ -104,6 +104,7 @@ interface DeckInfo {
   name: string
   customCss?: string
   canvasSize?: CanvasSize
+  fontFamily?: string
   codeFont?: CodeFont
   imgs: ImageEntry[]
   createdAt: string
@@ -112,6 +113,15 @@ interface DeckInfo {
 
 function parseCodeFont(v: unknown): CodeFont | undefined {
   return v === 'jetbrains' || v === 'consolas' ? v : undefined
+}
+
+function parseFontFamily(v: unknown): string | undefined {
+  return (
+    v === 'segoe-ui-emoji' ||
+    v === 'inter' ||
+    v === 'jetbrains-mono' ||
+    v === 'consolas'
+  ) ? v : undefined
 }
 
 interface RootIndexEntry {
@@ -146,12 +156,33 @@ function postPath(deckDir: string): string {
   return path.join(deckDir, POST_FILE)
 }
 
+function sanitizePageMeta(meta: unknown): Record<string, unknown> {
+  const source = meta && typeof meta === 'object' ? meta as Record<string, unknown> : {}
+  const result: Record<string, unknown> = {}
+  if (typeof source.fontScale === 'number') result.fontScale = source.fontScale
+  if (typeof source.marginScale === 'number') result.marginScale = source.marginScale
+  if (typeof source.dark === 'boolean') result.dark = source.dark
+  if (typeof source.customCss === 'string') result.customCss = source.customCss
+  return result
+}
+
+function sanitizePages(pages: unknown): SerializedPage[] {
+  if (!Array.isArray(pages)) return []
+  return pages.map((page) => {
+    const source = page && typeof page === 'object' ? page as Record<string, unknown> : {}
+    return {
+      meta: sanitizePageMeta(source.meta),
+      html: typeof source.html === 'string' ? source.html : '',
+    }
+  })
+}
+
 function readPost(deckDir: string): PostFile {
   const p = postPath(deckDir)
   if (fs.existsSync(p)) {
     try {
       const parsed = JSON.parse(fs.readFileSync(p, 'utf-8')) as PostFile
-      if (Array.isArray(parsed.pages)) return parsed
+      if (Array.isArray(parsed.pages)) return { version: POST_VERSION, pages: sanitizePages(parsed.pages) }
     } catch { /* fall through to migration */ }
   }
   return migrateLoosePages(deckDir)
@@ -160,7 +191,7 @@ function readPost(deckDir: string): PostFile {
 function writePost(deckDir: string, pages: SerializedPage[]) {
   const p = postPath(deckDir)
   const tmp = `${p}.tmp`
-  const payload: PostFile = { version: POST_VERSION, pages }
+  const payload: PostFile = { version: POST_VERSION, pages: sanitizePages(pages) }
   fs.writeFileSync(tmp, JSON.stringify(payload, null, 2), 'utf-8')
   fs.renameSync(tmp, p)
 }
@@ -392,6 +423,14 @@ export function slidesPlugin(): Plugin {
               info.canvasSize = existingInfo.canvasSize
             }
 
+            if (Object.prototype.hasOwnProperty.call(body, 'fontFamily')) {
+              const ff = parseFontFamily(body.fontFamily)
+              if (ff && ff !== 'segoe-ui-emoji') info.fontFamily = ff
+              // else: drop the field
+            } else if (existingInfo?.fontFamily) {
+              info.fontFamily = existingInfo.fontFamily
+            }
+
             // Only persist non-default codeFont; client treats undefined as 'jetbrains'
             if (Object.prototype.hasOwnProperty.call(body, 'codeFont')) {
               const cf = parseCodeFont(body.codeFont)
@@ -488,6 +527,10 @@ export function slidesPlugin(): Plugin {
             const importedCodeFont = parseCodeFont(rawInfo.codeFont)
             if (importedCodeFont && importedCodeFont !== 'jetbrains') {
               info.codeFont = importedCodeFont
+            }
+            const importedFontFamily = parseFontFamily(rawInfo.fontFamily)
+            if (importedFontFamily && importedFontFamily !== 'segoe-ui-emoji') {
+              info.fontFamily = importedFontFamily
             }
 
             // Collect image bytes from zip (path-whitelisted: only images/img-NNNN)
@@ -595,6 +638,7 @@ export function slidesPlugin(): Plugin {
               title: info.name,
               customCss: info.customCss ?? '',
               canvasSize: info.canvasSize,
+              fontFamily: info.fontFamily,
               codeFont: info.codeFont,
               imgs: info.imgs || [],
               hasBg: hasBgFile(deckDir),
