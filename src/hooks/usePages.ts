@@ -72,16 +72,21 @@ export function usePages(editor: TiptapEditor | null) {
     const insertAt = active >= 0 && active < pagesRef.current.length
       ? active + 1
       : pagesRef.current.length
+    const activeMeta = normalizeMeta(metaRef.current[active])
+    const inheritedMeta = normalizeMeta({
+      fontScale: activeMeta.fontScale,
+      marginScale: activeMeta.marginScale,
+    })
     pagesRef.current.splice(insertAt, 0, DEFAULT_PAGE)
     dirtyRef.current.splice(insertAt, 0, false)
-    metaRef.current.splice(insertAt, 0, normalizeMeta())
+    metaRef.current.splice(insertAt, 0, inheritedMeta)
     // Switch to new page
     suppressSave.current = true
     editor.commands.setContent(DEFAULT_PAGE)
     suppressSave.current = false
     setActivePage(insertAt)
     setPages([...pagesRef.current])
-    setPageMeta(normalizeMeta())
+    setPageMeta(inheritedMeta)
   }, [editor])
 
   const deletePage = useCallback(

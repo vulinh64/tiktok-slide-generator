@@ -647,24 +647,6 @@ function App() {
               </div>
               <div className="app-menu">
                 <button className="app-menu-trigger" type="button">
-                  Page
-                </button>
-                <div className="app-menu-popover">
-                  <button type="button" onClick={handleExport}>
-                    Export PNG
-                  </button>
-                  <div className="app-menu-separator" />
-                  <button
-                    type="button"
-                    onClick={() => setPageCssModalOpen(true)}
-                    title="Custom CSS for this page"
-                  >
-                    Page CSS
-                  </button>
-                </div>
-              </div>
-              <div className="app-menu">
-                <button className="app-menu-trigger" type="button">
                   View
                 </button>
                 <div className="app-menu-popover">
@@ -780,6 +762,8 @@ function App() {
           <Toolbar
             editor={editor}
             deckId={currentDeckId}
+            onEditPageCss={() => setPageCssModalOpen(true)}
+            onExportPng={handleExport}
           />
         )}
         <div

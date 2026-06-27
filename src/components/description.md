@@ -12,7 +12,7 @@ UI building blocks for the slide editor: the home/dashboard screen, the Tiptap e
 ### Toolbar.tsx (+ Toolbar.css)
 - **Purpose:** formatting toolbar for the active page (text styles, headings, lists, alignment, color/highlight, image insert, HR, undo/redo).
 - **Exports:** `Toolbar`
-- **Notes:** Uploads/inserts a single image via `POST /api/slides/:deckId/images`; falls back to URL prompt when no `deckId`. The Page CSS modal now opens from the `Page` menu in `App.tsx`; the deck image manager opens from the `Images` menu.
+- **Notes:** Uploads/inserts a single image via `POST /api/slides/:deckId/images`; falls back to URL prompt when no `deckId`. Opens the Page CSS modal for the active page and triggers single-page PNG export; the deck image manager opens from the `Images` menu.
 
 ### PageList.tsx (+ PageList.css)
 - **Purpose:** left-rail list of pages in the current deck with add/select/delete and truncated text previews.

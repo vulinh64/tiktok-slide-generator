@@ -5,6 +5,8 @@ import './Toolbar.css'
 interface ToolbarProps {
   editor: TiptapEditor
   deckId?: string | null
+  onEditPageCss: () => void
+  onExportPng: () => void
 }
 
 async function uploadImage(deckId: string, file: File): Promise<string | null> {
@@ -19,7 +21,7 @@ async function uploadImage(deckId: string, file: File): Promise<string | null> {
   return data.url as string
 }
 
-export function Toolbar({ editor, deckId }: ToolbarProps) {
+export function Toolbar({ editor, deckId, onEditPageCss, onExportPng }: ToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const addImage = useCallback(() => {
@@ -221,6 +223,12 @@ export function Toolbar({ editor, deckId }: ToolbarProps) {
 
       {/* Extras */}
       <div className="toolbar-group">
+        <button className="toolbar-btn" onClick={onExportPng} title="Export PNG">
+          Export PNG
+        </button>
+        <button className="toolbar-btn" onClick={onEditPageCss} title="Page CSS">
+          Page CSS
+        </button>
         <button className="toolbar-btn" onClick={addImage} title="Insert Image">
           Image
         </button>
